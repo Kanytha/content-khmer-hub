@@ -45,8 +45,23 @@ export default function AccountSettingsPage() {
         }
         setUser(authUser);
 
+        // 1. Fetch profile from creator_profiles for accurate name & avatar
+        const { data: profile } = await supabase
+          .from('creator_profiles')
+          .select('username, full_name, avatar_url')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+
         const meta = authUser.user_metadata || {};
-        const currentName = meta.username || meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Creator';
+        const currentName = 
+          profile?.username || 
+          profile?.full_name || 
+          meta.username || 
+          meta.full_name || 
+          meta.name || 
+          authUser.email?.split('@')[0] || 
+          'Creator';
+
         setUsername(currentName);
         setNameInput(currentName);
 
@@ -59,8 +74,14 @@ export default function AccountSettingsPage() {
           : currentName.slice(0, 2).toUpperCase();
         setInitials(derivedInitials);
 
-        if (meta.avatar_url || meta.picture) {
-          setAvatarUrl(meta.avatar_url || meta.picture);
+        const currentAvatar = 
+          profile?.avatar_url || 
+          meta.avatar_url || 
+          meta.picture || 
+          localStorage.getItem('user_avatar_url');
+
+        if (currentAvatar) {
+          setAvatarUrl(currentAvatar);
         }
 
         if (authUser.created_at) {
@@ -101,11 +122,14 @@ export default function AccountSettingsPage() {
       }
 
       setAvatarUrl(publicUrl);
+      localStorage.setItem('user_avatar_url', publicUrl);
 
+      // Keep Auth metadata synced
       await supabase.auth.updateUser({
         data: { avatar_url: publicUrl, picture: publicUrl }
       });
 
+      // Update creator_profiles table so Dashboard always sees the photo
       await supabase
         .from('creator_profiles')
         .update({ avatar_url: publicUrl })
@@ -131,13 +155,18 @@ export default function AccountSettingsPage() {
         : updated.slice(0, 2).toUpperCase();
       setInitials(derivedInitials);
 
+      // 1. Update auth user metadata
       await supabase.auth.updateUser({
         data: { username: updated, full_name: updated }
       });
 
+      // 2. Update both username and full_name in creator_profiles
       await supabase
         .from('creator_profiles')
-        .update({ username: updated })
+        .update({ 
+          username: updated,
+          full_name: updated
+        })
         .eq('user_id', user.id);
 
       setIsEditingName(false);
@@ -238,7 +267,7 @@ export default function AccountSettingsPage() {
             <FiGrid size={18} /> Dashboard
           </div>
           <div 
-            onClick={() => { onClose?.(); navigate('/ideas'); }}
+            onClick={() => { onClose?.(); navigate('/recommendations'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
           >
             <FiStar size={18} /> Recommendations
@@ -250,14 +279,14 @@ export default function AccountSettingsPage() {
             <FiEdit3 size={18} /> Ideas
           </div>
           <div 
-            onClick={() => { onClose?.(); navigate('/ideas'); }}
+            onClick={() => { onClose?.(); navigate('/opportunities'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
           >
             <FiCompass size={18} /> Opportunities
           </div>
           <div 
             onClick={() => { onClose?.(); navigate('/profile'); }}
-            className="flex items-center gap-3 bg-white text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-bold"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
           >
             <FiUser size={18} /> Profile
           </div>
@@ -267,7 +296,7 @@ export default function AccountSettingsPage() {
       <div className="space-y-1 text-sm font-normal text-[#64748B]">
         <div 
           onClick={() => { onClose?.(); navigate('/account'); }}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+          className="flex items-center gap-3 bg-white text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-bold"
         >
           <FiSettings size={18} /> Settings
         </div>
@@ -312,7 +341,7 @@ export default function AccountSettingsPage() {
           <button 
             type="button"
             onClick={() => navigate('/profile')}
-            className="inline-flex items-center gap-2 text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+            className="inline-flex items-center gap-2 text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
           >
             <FiArrowLeft size={14} /> Back to Profile
           </button>
@@ -352,6 +381,7 @@ export default function AccountSettingsPage() {
                     src={avatarUrl} 
                     alt={username} 
                     className="w-16 h-16 rounded-full object-cover border border-[#E2E8F0] shadow-xs"
+                    onError={() => setAvatarUrl(null)}
                   />
                 ) : (
                   <div className="w-16 h-16 bg-[#FFF0F5] text-[#ED4B9E] rounded-full border border-pink-200 flex items-center justify-center font-medium text-xl shadow-xs">
@@ -386,7 +416,7 @@ export default function AccountSettingsPage() {
                       <button 
                         type="button" 
                         onClick={handleSaveName}
-                        className="p-1.5 bg-[#5352ED] text-white rounded-lg hover:bg-[#4342D9] transition-colors"
+                        className="p-1.5 bg-[#5352ED] text-white rounded-lg hover:bg-[#4342D9] transition-colors cursor-pointer"
                       >
                         <FiCheck size={14} />
                       </button>
@@ -400,7 +430,7 @@ export default function AccountSettingsPage() {
                   <button 
                     type="button"
                     onClick={() => setIsEditingName(true)}
-                    className="inline-flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#0F172A] transition-colors self-start sm:self-auto"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#0F172A] transition-colors self-start sm:self-auto cursor-pointer"
                   >
                     <FiEdit2 size={12} /> Edit
                   </button>
@@ -421,7 +451,7 @@ export default function AccountSettingsPage() {
                       <button 
                         type="button" 
                         onClick={handleUpdateEmail}
-                        className="p-1.5 bg-[#5352ED] text-white rounded-lg hover:bg-[#4342D9] transition-colors"
+                        className="p-1.5 bg-[#5352ED] text-white rounded-lg hover:bg-[#4342D9] transition-colors cursor-pointer"
                       >
                         <FiCheck size={14} />
                       </button>
@@ -435,7 +465,7 @@ export default function AccountSettingsPage() {
                   <button 
                     type="button"
                     onClick={() => setIsChangingEmail(true)}
-                    className="text-xs text-[#5352ED] hover:underline transition-colors self-start sm:self-auto font-normal"
+                    className="text-xs text-[#5352ED] hover:underline transition-colors self-start sm:self-auto font-normal cursor-pointer"
                   >
                     Change email
                   </button>
@@ -460,17 +490,17 @@ export default function AccountSettingsPage() {
                     {isChangingPassword ? (
                       <div className="space-y-2 pt-1">
                         <input 
-                          type="password"
-                          value={newPassword}
+                          type="password" 
+                          value={newPassword} 
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="New password (min 6 chars)"
                           className="border border-[#5352ED] rounded-lg px-2.5 py-1 text-xs text-[#1E293B] focus:outline-none block w-full sm:w-64"
                         />
                         {passwordMsg && <p className="text-[11px] text-[#5352ED]">{passwordMsg}</p>}
                         <button 
-                          type="button"
+                          type="button" 
                           onClick={handleUpdatePassword}
-                          className="bg-[#5352ED] text-white px-3 py-1 rounded-lg text-xs hover:bg-[#4342D9] transition-colors"
+                          className="bg-[#5352ED] text-white px-3 py-1 rounded-lg text-xs hover:bg-[#4342D9] transition-colors cursor-pointer"
                         >
                           Confirm
                         </button>
@@ -483,7 +513,7 @@ export default function AccountSettingsPage() {
                     <button 
                       type="button" 
                       onClick={() => setIsChangingPassword(true)}
-                      className="text-xs text-[#5352ED] hover:underline self-start sm:self-auto font-normal"
+                      className="text-xs text-[#5352ED] hover:underline self-start sm:self-auto font-normal cursor-pointer"
                     >
                       Change password
                     </button>
@@ -498,7 +528,7 @@ export default function AccountSettingsPage() {
                   <button 
                     type="button" 
                     onClick={() => alert("Current session: Active Web Client")}
-                    className="text-xs text-[#5352ED] hover:underline self-start sm:self-auto font-normal"
+                    className="text-xs text-[#5352ED] hover:underline self-start sm:self-auto font-normal cursor-pointer"
                   >
                     View sessions
                   </button>
@@ -512,7 +542,7 @@ export default function AccountSettingsPage() {
                   <button 
                     type="button" 
                     onClick={handleSignOutAll}
-                    className="text-xs text-[#5352ED] hover:underline self-start sm:self-auto font-normal"
+                    className="text-xs text-[#5352ED] hover:underline self-start sm:self-auto font-normal cursor-pointer"
                   >
                     Sign out
                   </button>
@@ -535,7 +565,7 @@ export default function AccountSettingsPage() {
                       <p className="text-xs font-medium text-[#1E293B]">English</p>
                     </div>
                   </div>
-                  <button type="button" className="text-xs text-[#5352ED] hover:underline font-normal">
+                  <button type="button" className="text-xs text-[#5352ED] hover:underline font-normal cursor-pointer">
                     Change
                   </button>
                 </div>
@@ -566,14 +596,14 @@ export default function AccountSettingsPage() {
                   Close Account
                 </h4>
                 <p className="text-xs text-[#64748B] max-w-lg leading-relaxed">
-                  If the creator wants to permanently delete their CKH account, they can do so from here. This action is irreversible.
+                  If you want to permanently delete your CKH account, you can do so from here. This action is irreversible.
                 </p>
               </div>
 
-              <button
-                type="button"
+              <button 
+                type="button" 
                 onClick={handleCloseAccount}
-                className="px-5 py-2.5 rounded-xl border border-[#FECACA] text-[#DC2626] text-xs font-normal hover:bg-[#FEE2E2] transition-colors shadow-2xs shrink-0"
+                className="px-5 py-2.5 rounded-xl border border-[#FECACA] text-[#DC2626] text-xs font-normal hover:bg-[#FEE2E2] transition-colors shadow-2xs shrink-0 cursor-pointer"
               >
                 Close Account
               </button>

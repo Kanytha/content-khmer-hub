@@ -4,12 +4,12 @@ import { supabase } from '../services/supabaseClient';
 import { toggleSaveItem } from '../services/savedService';
 import { useSubscription } from '../hooks/useSubscription';
 import SubscriptionPromptModal from '../components/SubscriptionPromptModal';
-import { 
-  FiGrid, FiStar, FiEdit3, FiCompass, FiUser, 
+import {
+  FiGrid, FiStar, FiEdit3, FiCompass, FiUser,
   FiSettings, FiHelpCircle, FiBell, FiX, FiBookmark, FiMessageSquare, FiMenu, FiRotateCcw
 } from 'react-icons/fi';
 import logo from "../assets/images/LOGO1-removebg-preview.png";
-import emptyStateImg from "../assets/images/empty.png"; 
+import emptyStateImg from "../assets/images/empty.png";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export default function Dashboard() {
   const { isPremium, loading: subLoading } = useSubscription();
   const [showPromoModal, setShowPromoModal] = useState(false);
 
-useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
 
     const fetchWorkspace = async () => {
@@ -48,11 +48,6 @@ useEffect(() => {
         if (!isMounted) return;
         setCurrentUser(user);
 
-        const cachedAvatar = localStorage.getItem('user_avatar_url');
-        if (user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar) {
-          setAvatarUrl(user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar);
-        }
-        
         const { data, error } = await supabase
           .from('creator_profiles')
           .select('*')
@@ -66,6 +61,16 @@ useEffect(() => {
         if (!data) {
           if (isMounted) navigate('/onboarding');
           return;
+        }
+
+        const resolvedAvatar =
+          data?.avatar_url ||
+          user.user_metadata?.avatar_url ||
+          user.user_metadata?.picture ||
+          localStorage.getItem('user_avatar_url');
+
+        if (resolvedAvatar && isMounted) {
+          setAvatarUrl(resolvedAvatar);
         }
 
         if (isMounted) {
@@ -88,8 +93,11 @@ useEffect(() => {
 
     fetchWorkspace();
 
+    window.addEventListener('focus', fetchWorkspace);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', fetchWorkspace);
       if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
     };
   }, [navigate]);
@@ -148,7 +156,7 @@ useEffect(() => {
       (rec) => rec.title !== recToDismiss.title
     );
     const updatedHistory = [...(dashboardData.history_recommendations || []), recToDismiss];
-    
+
     setDashboardData({
       ...dashboardData,
       active_recommendations: updatedActive,
@@ -216,12 +224,12 @@ useEffect(() => {
     );
   }
 
-  const displayName = dashboardData?.username 
-  || dashboardData?.full_name 
-  || currentUser?.user_metadata?.username 
-  || currentUser?.user_metadata?.full_name 
-  || currentUser?.email?.split('@')[0] 
-  || 'Creator';
+  const displayName = dashboardData?.username
+    || dashboardData?.full_name
+    || currentUser?.user_metadata?.username
+    || currentUser?.user_metadata?.full_name
+    || currentUser?.email?.split('@')[0]
+    || 'Creator';
 
   const initials = displayName.substring(0, 2).toUpperCase();
 
@@ -230,20 +238,20 @@ useEffect(() => {
       <div>
         <div className="px-2 mb-10 flex justify-between items-center">
           <img src={logo} alt="Logo" className="h-12 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
-          <button 
+          <button
             type="button"
-            onClick={() => setIsMobileMenuOpen(false)} 
+            onClick={() => setIsMobileMenuOpen(false)}
             className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
           >
             <FiX size={24} />
           </button>
         </div>
-        
+
         <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
           <div className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-bold">
             <FiGrid size={18} /> Dashboard
           </div>
-          <div 
+          <div
             onClick={() => navigate('/recommendations')}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
           >
@@ -261,7 +269,7 @@ useEffect(() => {
           >
             <FiCompass size={18} /> Opportunities
           </div>
-          <div 
+          <div
             onClick={() => navigate('/profile')}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
           >
@@ -271,7 +279,7 @@ useEffect(() => {
       </div>
 
       <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-        <div 
+        <div
           onClick={() => navigate('/account')}
           className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
         >
@@ -286,12 +294,12 @@ useEffect(() => {
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A] bg-white font-normal">
-      
+
       <div className="md:hidden flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-[#FFFFFF]">
         <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
-        <button 
+        <button
           type="button"
-          onClick={() => setIsMobileMenuOpen(true)} 
+          onClick={() => setIsMobileMenuOpen(true)}
           className="text-[#0F172A] hover:text-[#5352ED] transition-colors"
         >
           <FiMenu size={24} />
@@ -300,8 +308,8 @@ useEffect(() => {
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div 
-            className="fixed inset-0 bg-black/30 backdrop-blur-xs transition-opacity" 
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMobileMenuOpen(false)}
           />
           <div className="relative w-[260px] max-w-sm bg-[#F5F2FF] h-full shadow-2xl">
@@ -315,23 +323,24 @@ useEffect(() => {
       </div>
 
       <div className="flex-1 h-full overflow-y-auto px-5 pb-5 pt-3 md:px-8 md:pb-8 md:pt-4 lg:px-12 lg:pb-12 lg:pt-4 bg-[#FFFFFF]">
-        
+
         <div className="flex justify-end items-center mb-8 gap-5 hidden md:flex">
           <button className="text-[#94A3B8] hover:text-[#0F172A] transition-colors">
             <FiBell size={20} />
           </button>
-          <div 
+          <div
             onClick={() => navigate('/profile')}
-            className="w-9 h-9 rounded-full border border-[#E2E8F0] flex items-center justify-center overflow-hidden shadow-xs cursor-pointer hover:border-[#5352ED] transition-colors shrink-0"
+            className="w-9 h-9 rounded-full border border-[#E2E8F0] flex items-center justify-center overflow-hidden shadow-xs cursor-pointer hover:border-[#5352ED] transition-colors shrink-0 bg-[#FFF0F5]"
           >
             {avatarUrl ? (
-              <img 
-                src={avatarUrl} 
-                alt="Profile" 
-                className="w-full h-full object-cover" 
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-full h-full object-cover"
+                onError={() => setAvatarUrl(null)}
               />
             ) : (
-              <div className="w-full h-full bg-[#FFF0F5] text-[#ED4B9E] font-bold text-xs flex items-center justify-center">
+              <div className="w-full h-full text-[#ED4B9E] font-bold text-xs flex items-center justify-center">
                 {initials}
               </div>
             )}
@@ -339,7 +348,7 @@ useEffect(() => {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8 mb-12">
-          
+
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <span className="bg-[#EEF2FF] text-[#5352ED] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
@@ -347,11 +356,11 @@ useEffect(() => {
               </span>
               <span className="text-[#94A3B8] text-[10px] font-bold uppercase tracking-wide">Current Goal</span>
             </div>
-            
+
             <h1 className="text-3xl lg:text-[32px] font-bold mb-8 tracking-tight text-[#0F172A]">
               Welcome back, {displayName}.
             </h1>
-            
+
             <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-6 rounded-2xl mb-4 shadow-2xs">
               <h2 className="text-[#5352ED] font-bold text-sm mb-1">Your Current Focus</h2>
               <p className="text-[#64748B] text-xs italic mb-3">{dashboardData?.current_focus?.title || "Tailoring insights..."}</p>
@@ -368,7 +377,7 @@ useEffect(() => {
                   <p className="text-[#64748B] text-xs leading-relaxed mb-4">
                     Your recent post sparked several similar questions from your audience. Responding to them now can strengthen engagement.
                   </p>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => navigate('/recommendations')}
                     className="bg-[#5352ED] text-[#FFFFFF] text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-[#4342D9] transition-colors shadow-xs cursor-pointer"
@@ -385,9 +394,9 @@ useEffect(() => {
                   <p className="text-[#64748B] text-xs leading-relaxed mb-4">
                     Welcome to the Hub! We are currently analyzing your goals. Your first set of tailored content recommendations will appear here soon.
                   </p>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => navigate('/profile')} 
+                    onClick={() => navigate('/profile')}
                     className="bg-[#FFFFFF] border border-[#E2E8F0] text-[#0F172A] text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-[#F1F5F9] shadow-xs transition-colors cursor-pointer"
                   >
                     Explore Your Profile →
@@ -404,18 +413,18 @@ useEffect(() => {
                   <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-wide">Your Recent Reflection</span>
                   <h3 className="font-bold mt-2 mb-2 text-[#0F172A]">{dashboardData.recent_reflection.title}</h3>
                   <p className="text-xs text-[#64748B] mb-4">{dashboardData.recent_reflection.description}</p>
-                  <button 
+                  <button
                     type="button"
                     className="w-full border border-[#E2E8F0] text-[#0F172A] text-xs font-bold py-2 rounded-xl hover:bg-[#F8FAFC] transition-colors"
                   >
                     Explore Next Step
                   </button>
                 </div>
-                
+
                 <div className="bg-[#F5F2FF] border border-[#E2E8F0] p-5 rounded-2xl shadow-2xs">
                   <span className="text-[10px] text-[#5352ED] font-bold uppercase tracking-wide">Reflection Follow-Up</span>
                   <p className="font-bold italic text-sm mt-3 mb-4 text-[#0F172A]">"What was the most rewarding interaction you had with a follower this week?"</p>
-                  <button 
+                  <button
                     type="button"
                     className="text-[#5352ED] text-xs font-bold hover:underline transition-all"
                   >
@@ -425,10 +434,10 @@ useEffect(() => {
               </>
             ) : (
               <div className="border-2 border-dashed border-[#E2E8F0] bg-transparent p-6 rounded-2xl text-center flex flex-col items-center justify-center h-full min-h-[200px]">
-                 <img src={emptyStateImg} alt="No reflections yet" className="w-32 h-32 object-contain mb-4 opacity-90" />
-                 <p className="text-[#64748B] text-xs font-medium leading-relaxed">
-                    Your reflections will appear here once you complete and post your first recommendation.
-                 </p>
+                <img src={emptyStateImg} alt="No reflections yet" className="w-32 h-32 object-contain mb-4 opacity-90" />
+                <p className="text-[#64748B] text-xs font-medium leading-relaxed">
+                  Your reflections will appear here once you complete and post your first recommendation.
+                </p>
               </div>
             )}
           </div>
@@ -437,7 +446,7 @@ useEffect(() => {
         <div>
           <h2 className="text-[22px] font-bold mb-6 text-[#0F172A]">Recommendations</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            
+
             {dashboardData?.active_recommendations?.map((rec, index) => {
               const recId = rec.id || `rec-${rec.title.replace(/\s+/g, '-').toLowerCase()}`;
               const isSaved = savedIds.has(recId);
@@ -445,14 +454,14 @@ useEffect(() => {
               return (
                 <div key={index} className="border border-[#E2E8F0] bg-[#F8FAFC] p-6 rounded-2xl flex flex-col justify-between shadow-2xs hover:border-[#5352ED] transition-colors">
                   <div>
-                     <div className="w-10 h-10 bg-[#FFFFFF] border border-[#E2E8F0] rounded-full flex items-center justify-center text-[#64748B] mb-4 shadow-xs">
-                       <FiStar size={18} />
-                     </div>
-                     <h3 className="font-bold text-lg leading-snug mb-3 text-[#0F172A]">{rec.title}</h3>
-                     <span className="bg-[#FFFFFF] border border-[#E2E8F0] text-[#64748B] text-[10px] font-bold px-2 py-1 rounded-md uppercase">Why?</span>
-                     <p className="text-xs text-[#64748B] mt-3 leading-relaxed">{rec.reason}</p>
+                    <div className="w-10 h-10 bg-[#FFFFFF] border border-[#E2E8F0] rounded-full flex items-center justify-center text-[#64748B] mb-4 shadow-xs">
+                      <FiStar size={18} />
+                    </div>
+                    <h3 className="font-bold text-lg leading-snug mb-3 text-[#0F172A]">{rec.title}</h3>
+                    <span className="bg-[#FFFFFF] border border-[#E2E8F0] text-[#64748B] text-[10px] font-bold px-2 py-1 rounded-md uppercase">Why?</span>
+                    <p className="text-xs text-[#64748B] mt-3 leading-relaxed">{rec.reason}</p>
                   </div>
-                  
+
                   <div className="flex justify-between items-center mt-6 pt-5 border-t border-[#E2E8F0]">
                     <button
                       type="button"
@@ -461,28 +470,27 @@ useEffect(() => {
                     >
                       View Details
                     </button>
-                     <div className="flex gap-2">
-                       <button 
-                         type="button"
-                         onClick={() => handleToggleBookmark(rec)}
-                         className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors cursor-pointer ${
-                           isSaved 
-                             ? 'bg-[#EEF2FF] border-[#5352ED] text-[#5352ED]' 
-                             : 'bg-[#FFFFFF] border-[#E2E8F0] text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#5352ED]'
-                         }`}
-                         title={isSaved ? "Saved in library" : "Save to library"}
-                       >
-                         <FiBookmark size={14} className={isSaved ? 'fill-current' : ''} />
-                       </button>
-                       <button 
-                         type="button"
-                         onClick={() => setDismissPendingItem(rec)}
-                         className="w-9 h-9 flex items-center justify-center bg-[#FFFFFF] border border-[#E2E8F0] rounded-full hover:bg-red-50 hover:text-red-500 hover:border-red-100 text-[#94A3B8] transition-colors cursor-pointer"
-                         title="Dismiss this idea"
-                       >
-                         <FiX size={14} />
-                       </button>
-                     </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleBookmark(rec)}
+                        className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors cursor-pointer ${isSaved
+                          ? 'bg-[#EEF2FF] border-[#5352ED] text-[#5352ED]'
+                          : 'bg-[#FFFFFF] border-[#E2E8F0] text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#5352ED]'
+                          }`}
+                        title={isSaved ? "Saved in library" : "Save to library"}
+                      >
+                        <FiBookmark size={14} className={isSaved ? 'fill-current' : ''} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDismissPendingItem(rec)}
+                        className="w-9 h-9 flex items-center justify-center bg-[#FFFFFF] border border-[#E2E8F0] rounded-full hover:bg-red-50 hover:text-red-500 hover:border-red-100 text-[#94A3B8] transition-colors cursor-pointer"
+                        title="Dismiss this idea"
+                      >
+                        <FiX size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -550,9 +558,9 @@ useEffect(() => {
         </div>
       )}
 
-      <SubscriptionPromptModal 
-        isOpen={showPromoModal} 
-        onClose={handleClosePromo} 
+      <SubscriptionPromptModal
+        isOpen={showPromoModal}
+        onClose={handleClosePromo}
       />
 
     </div>
