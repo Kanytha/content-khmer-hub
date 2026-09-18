@@ -1,0 +1,129 @@
+/* GOOGLE FONTS*/
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+@import "tailwindcss";
+
+
+/*CUSTOM THEME*/
+
+@theme {
+  /*Custom Colors */
+  --color-studio-white: #FFFFFF;
+  --color-cool-ash: #F8FAFC;
+  --color-jet-obsidian: #0F172A;
+  --color-digital-indigo: #5352ED;
+  --color-slate: #64748B;
+  --color-border: #E2E8F0;
+
+  /*Custom Fonts */
+  --font-sans: 'Inter', sans-serif;
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+}
+
+
+/*BASE STYLES*/
+
+@layer base {
+  body {
+    background-color: var(--color-cool-ash);
+    color: var(--color-slate);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    color: var(--color-jet-obsidian);
+  }
+}
+
+
+/*FLOAT ANIMATION*/
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+
+.animate-float {
+  animation: float 1.5s ease-in-out infinite;
+}
+
+
+/*SHINY TEXT*/
+
+.shimmer-text {
+  position: relative;
+  display: inline-block;
+  color: #0F172A;
+  overflow: hidden;
+}
+
+
+.shimmer-text::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+
+  background: linear-gradient(
+    135deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.7) 50%,
+    transparent 60%
+  );
+
+  transform: translate(-150%, -150%) rotate(15deg);
+
+  animation: shimmer 8s ease-in-out infinite;
+}
+
+
+@keyframes shimmer {
+  0% {
+    transform: translate(-150%, -150%) rotate(15deg);
+  }
+
+  40% {
+    transform: translate(-150%, -150%) rotate(15deg);
+  }
+
+  100% {
+    transform: translate(150%, 150%) rotate(15deg);
+  }
+}
+
+
+/*END SHINY BANNER TEXT*/
+
+/* Page entrance animation */
+
+@keyframes page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 900ms ease-out both;
+}
+
+.animate-page-enter-delay {
+  animation: page-enter 900ms ease-out 150ms both;
+}
+/* End Page entrance animation */
