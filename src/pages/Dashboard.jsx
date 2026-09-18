@@ -216,7 +216,8 @@ useEffect(() => {
     );
   }
 
-  const displayName = dashboardData?.full_name 
+  const displayName = dashboardData?.username 
+    || dashboardData?.full_name 
     || currentUser?.user_metadata?.username 
     || currentUser?.user_metadata?.full_name 
     || currentUser?.email?.split('@')[0] 
