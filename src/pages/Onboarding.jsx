@@ -65,16 +65,55 @@ export default function Onboarding() {
       setIsGenerating(true);
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        // 1. Get user from active session first (avoids null flash on production)
+        let { data: { session } } = await supabase.auth.getSession();
+        let user = session?.user;
 
         if (!user) {
-          navigate('/login');
+          const { data } = await supabase.auth.getUser();
+          user = data?.user;
+        }
+
+        if (!user) {
+          console.warn("No active user session detected, redirecting to login");
+          navigate('/login', { replace: true });
           return;
         }
 
-        const aiData = await generateWorkspaceData(selections);
-        const signupUsername = user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator';
+        // 2. Generate workspace data with fallback safety
+        let aiData = {
+          current_focus: {
+            title: `${selections.topic || 'Content'} Growth Strategy`,
+            description: `Focus on engaging your ${selections.audience || 'audience'} with clear, authentic stories.`
+          },
+          active_recommendations: [
+            {
+              title: "Address Top Audience Questions",
+              reason: "Directly answering what viewers ask builds trust and authority fast."
+            },
+            {
+              title: "Behind-the-Scenes Production Breakdown",
+              reason: "Showing your creative process increases follower connection."
+            }
+          ]
+        };
 
+        try {
+          const generated = await generateWorkspaceData(selections);
+          if (generated?.current_focus && generated?.active_recommendations) {
+            aiData = generated;
+          }
+        } catch (aiErr) {
+          console.warn("AI generation fallback activated:", aiErr);
+        }
+
+        const signupUsername =
+          user.user_metadata?.username ||
+          user.user_metadata?.full_name ||
+          user.email?.split('@')[0] ||
+          'Creator';
+
+        // 3. Upsert profile safely
         const { error } = await supabase
           .from('creator_profiles')
           .upsert({
@@ -89,12 +128,14 @@ export default function Onboarding() {
 
         if (error) {
           console.error("Error saving profile:", error);
+          alert("Could not save your profile. Please check your connection and try again.");
           return;
         }
 
-        navigate('/dashboard');
+        // 4. Navigate directly to dashboard replacing history
+        navigate('/dashboard', { replace: true });
       } catch (error) {
-        console.error("Error saving profile:", error);
+        console.error("Error in onboarding submission:", error);
       } finally {
         setIsGenerating(false);
       }
