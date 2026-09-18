@@ -83,11 +83,12 @@ export default function SignUp() {
 
         try {
             const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
+                email: email.trim(),
+                password: password,
                 options: {
                     data: {
                         username: username.trim(),
+                        display_name: username.trim(),
                         full_name: username.trim()
                     }
                 }
