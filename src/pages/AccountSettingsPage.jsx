@@ -113,13 +113,18 @@ export default function AccountSettingsPage() {
         .from('creator_assets')
         .upload(filePath, file, { upsert: true });
 
-      let publicUrl = '';
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('creator_assets').getPublicUrl(filePath);
-        publicUrl = urlData?.publicUrl || '';
-      } else {
-        publicUrl = URL.createObjectURL(file);
+     if (uploadError) {
+        console.error("Storage upload failed:", uploadError);
+        alert("Upload error: " + uploadError.message);
+        return;
       }
+
+      const { data: urlData } = supabase.storage
+        .from('creator_assets')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData?.publicUrl;
+      if (!publicUrl) return;
 
       setAvatarUrl(publicUrl);
       localStorage.setItem('user_avatar_url', publicUrl);
