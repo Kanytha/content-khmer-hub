@@ -283,8 +283,23 @@ export default function Onboarding() {
 
             <p className="italic text-[#94A3B8] text-xs mb-8">"Every creator has a different path. CKH starts with understanding yours."</p>
 
-            <button onClick={handleNext} className="bg-[#5352ED] text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-[#4342D9] transition-all flex items-center gap-2 shadow-lg hover:-translate-y-1">
-              Enter Creator Workspace <FiArrowRight />
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={isGenerating}
+              className="bg-[#5352ED] text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-[#4342D9] transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isGenerating ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Setting up your workspace...</span>
+                </>
+              ) : (
+                <>
+                  <span>Enter Creator Workspace</span>
+                  <FiArrowRight />
+                </>
+              )}
             </button>
           </div>
         </div>

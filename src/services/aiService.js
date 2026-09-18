@@ -1,38 +1,57 @@
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`;
 
-const callGeminiJson = async (prompt) => {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json"
+const callGeminiJson = async (prompt, maxRetries = 2) => {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      if (response.status === 503 && attempt < maxRetries) {
+        console.warn(`Gemini 3 Flash 503 high demand. Retrying attempt ${attempt + 1}...`);
+        await new Promise(res => setTimeout(res, 1500 * (attempt + 1)));
+        continue;
       }
-    })
-  });
 
-  if (!response.ok) {
-    throw new Error(`API failed with status: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`API failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      let aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!aiText) {
+        throw new Error("No text returned by AI model.");
+      }
+
+      aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      const jsonStartIndex = aiText.indexOf('{');
+      const jsonEndIndex = aiText.lastIndexOf('}');
+      if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+        aiText = aiText.substring(jsonStartIndex, jsonEndIndex + 1);
+      }
+
+      return JSON.parse(aiText);
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        await new Promise(res => setTimeout(res, 1500 * (attempt + 1)));
+      }
+    }
   }
 
-  const data = await response.json();
-  let aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!aiText) {
-    throw new Error("No text returned by AI model.");
-  }
-
-  aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-  const jsonStartIndex = aiText.indexOf('{');
-  const jsonEndIndex = aiText.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    aiText = aiText.substring(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return JSON.parse(aiText);
+  throw lastError;
 };
 
 // recommendation card on dashboard
