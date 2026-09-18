@@ -27,15 +27,25 @@ export default function Dashboard() {
   const { isPremium, loading: subLoading } = useSubscription();
   const [showPromoModal, setShowPromoModal] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
+    let isMounted = true;
+
     const fetchWorkspace = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        let { data: { session } } = await supabase.auth.getSession();
+        let user = session?.user;
+
         if (!user) {
-          navigate('/login');
-          return; 
+          const { data } = await supabase.auth.getUser();
+          user = data?.user;
         }
 
+        if (!user) {
+          if (isMounted) navigate('/login');
+          return;
+        }
+
+        if (!isMounted) return;
         setCurrentUser(user);
 
         const cachedAvatar = localStorage.getItem('user_avatar_url');
@@ -54,29 +64,32 @@ export default function Dashboard() {
         }
 
         if (!data) {
-          navigate('/onboarding');
+          if (isMounted) navigate('/onboarding');
           return;
         }
 
-        setDashboardData(data);
+        if (isMounted) {
+          setDashboardData(data);
 
-        const rawSaved = localStorage.getItem(`ckh_saved_items_${user.id}`);
-        if (rawSaved) {
-          try {
-            const list = JSON.parse(rawSaved);
-            setSavedIds(new Set(list.map(i => i.id)));
-          } catch {}
+          const rawSaved = localStorage.getItem(`ckh_saved_items_${user.id}`);
+          if (rawSaved) {
+            try {
+              const list = JSON.parse(rawSaved);
+              setSavedIds(new Set(list.map(i => i.id)));
+            } catch {}
+          }
         }
       } catch (error) {
         console.error("Error fetching workspace:", error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     fetchWorkspace();
 
     return () => {
+      isMounted = false;
       if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
     };
   }, [navigate]);
