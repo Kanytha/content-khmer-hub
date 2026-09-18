@@ -65,7 +65,6 @@ export default function Onboarding() {
       setIsGenerating(true);
 
       try {
-        // 1. Get user from active session first (avoids null flash on production)
         let { data: { session } } = await supabase.auth.getSession();
         let user = session?.user;
 
@@ -80,7 +79,6 @@ export default function Onboarding() {
           return;
         }
 
-        // 2. Generate workspace data with fallback safety
         let aiData = {
           current_focus: {
             title: `${selections.topic || 'Content'} Growth Strategy`,
@@ -107,13 +105,20 @@ export default function Onboarding() {
           console.warn("AI generation fallback activated:", aiErr);
         }
 
+        const { data: existingProfile } = await supabase
+          .from('creator_profiles')
+          .select('username, full_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
         const signupUsername =
+          existingProfile?.username ||
+          existingProfile?.full_name ||
           user.user_metadata?.username ||
           user.user_metadata?.full_name ||
           user.email?.split('@')[0] ||
           'Creator';
 
-        // 3. Upsert profile safely
         const { error } = await supabase
           .from('creator_profiles')
           .upsert({

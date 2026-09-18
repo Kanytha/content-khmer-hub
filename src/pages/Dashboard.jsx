@@ -217,11 +217,11 @@ useEffect(() => {
   }
 
   const displayName = dashboardData?.username 
-    || dashboardData?.full_name 
-    || currentUser?.user_metadata?.username 
-    || currentUser?.user_metadata?.full_name 
-    || currentUser?.email?.split('@')[0] 
-    || 'Creator';
+  || dashboardData?.full_name 
+  || currentUser?.user_metadata?.username 
+  || currentUser?.user_metadata?.full_name 
+  || currentUser?.email?.split('@')[0] 
+  || 'Creator';
 
   const initials = displayName.substring(0, 2).toUpperCase();
 
