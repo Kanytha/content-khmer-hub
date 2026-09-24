@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
     FiTarget,
     FiFilter,
@@ -74,8 +75,9 @@ export default function LandingPage() {
 
                         <div className="flex flex-wrap gap-4 pt-5">
 
-                            <button
-                                className="
+                            <Link to="/signup">
+                                <button
+                                    className="
                                     animate-float
                                     bg-[#5352ED]
                                     text-white
@@ -89,27 +91,34 @@ export default function LandingPage() {
                                     transition-all
                                     duration-300
                                 "
-                            >
-                                Get Started
-                            </button>
+                                >
+                                    Get Started
+                                </button>
+                            </Link>
 
                             <button
+                                onClick={() => {
+                                    const section = document.getElementById('how-it-works');
+                                    if (section) {
+                                        section.scrollIntoView({ behavior: 'smooth' });
+                                    }
+                                }}
                                 className="
-                                    border-2
-                                    border-[#E2E8F0]
-                                    text-[#0F172A]
-                                    px-6
-                                    py-2.5
-                                    text-sm
-                                    rounded-full
-                                    font-medium
-                                    hover:border-[#5352ED]
-                                    hover:text-[#5352ED]
-                                    hover:-translate-y-1
-                                    hover:shadow-md
-                                    transition-all
-                                    duration-300
-                                "
+        border-2
+        border-[#E2E8F0]
+        text-[#0F172A]
+        px-6
+        py-2.5
+        text-sm
+        rounded-full
+        font-medium
+        hover:border-[#5352ED]
+        hover:text-[#5352ED]
+        hover:-translate-y-1
+        hover:shadow-md
+        transition-all
+        duration-300
+    "
                             >
                                 See How CKH Works
                             </button>
@@ -378,10 +387,11 @@ export default function LandingPage() {
                     <p className="text-[#E2E8F0] mb-6 text-sm max-w-2xl mx-auto">
                         Bring your next content decision to CKH. Compare your ideas, understand why one fits better, and move forward with confidence.
                     </p>
-
-                    <button className="animate-float bg-white text-[#5352ED] px-7 py-2.5 rounded-full font-bold text-sm hover:bg-[#F8FAFC] hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
-                        Get Started Now
-                    </button>
+                    <Link to="/signup">
+                        <button className="animate-float bg-white text-[#5352ED] px-7 py-2.5 rounded-full font-bold text-sm hover:bg-[#F8FAFC] hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+                            Get Started Now
+                        </button>
+                    </Link>
 
                 </section>
             </FadeIn>

@@ -363,19 +363,21 @@ export default function SignUp() {
                                 className="text-[11px] text-[#64748B] leading-relaxed cursor-pointer"
                             >
                                 I agree to the{" "}
-                                <a
-                                    href="#"
+                                <Link
+                                    to="/terms"
+                                    target="_blank"
                                     className="text-[#5352ED] font-semibold hover:underline"
                                 >
                                     Terms of Service
-                                </a>
+                                </Link>
                                 {" "}and{" "}
-                                <a
-                                    href="#"
+                                <Link
+                                    to="/privacy"
+                                    target="_blank"
                                     className="text-[#5352ED] font-semibold hover:underline"
                                 >
                                     Privacy Policy
-                                </a>.
+                                </Link>.
                             </label>
                         </div>
 

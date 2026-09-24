@@ -4,6 +4,7 @@ import Footer from './components/common/Footer';
 import LandingPage from './pages/LandingPage';
 import SignUp from './pages/SignUp';
 import Login from './pages/Login';
+import TermsPage from './pages/TermsPage';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import RecommendationDetails from './pages/RecommendationDetails';
@@ -17,6 +18,7 @@ import ManageInfoPage from './pages/ManageInfoPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import SavedPage from './pages/SavedPage';
 import RecommendationsPage from './pages/RecommendationsPage';
+
 function MainLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
@@ -39,6 +41,8 @@ function App() {
         
         <Route path="/signup" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<TermsPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/recommendation-details" element={<RecommendationDetails />} />
