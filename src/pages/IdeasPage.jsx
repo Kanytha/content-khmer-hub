@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { getCreatorContext, evaluateSingleIdea, compareIdeas } from '../services/ideaEvaluationService';
+import { useSubscription } from '../hooks/useSubscription';
 import AddIdeaModal from '../components/AddIdeaModal';
+import NotificationCenter from '../components/NotificationCenter';
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
   FiGrid, FiStar, FiEdit3, FiCompass, FiUser, 
   FiSettings, FiHelpCircle, FiX, FiPlus, 
-  FiBell, FiMenu 
+  FiMenu 
 } from 'react-icons/fi';
 import { LuCalendar } from 'react-icons/lu';
 import { MdDragIndicator } from 'react-icons/md';
@@ -24,6 +26,8 @@ export default function IdeasPage() {
   const [initials, setInitials] = useState('TE');
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const { isPremium } = useSubscription();
 
   useEffect(() => {
     async function loadData() {
@@ -191,7 +195,7 @@ export default function IdeasPage() {
     <div className="flex flex-col justify-between h-full py-8 px-4">
       <div>
         <div className="px-2 mb-10 flex justify-between items-center">
-          <img src={logo} alt="Logo" className="h-12 w-auto object-contain" />
+          <img src={logo} alt="Logo" className="h-12 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
           <button 
             type="button"
             onClick={onClose} 
@@ -276,14 +280,24 @@ export default function IdeasPage() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A]">
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-[#FFFFFF]">
-        <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
-        <button 
-          onClick={() => setIsMobileMenuOpen(true)} 
-          className="text-[#0F172A] hover:text-[#5352ED] transition-colors"
-        >
-          <FiMenu size={24} />
-        </button>
+      
+      {/* Sticky Mobile Header */}
+      <div className="md:hidden sticky top-0 z-30 flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-xs shadow-2xs">
+        <img src={logo} alt="Logo" className="h-8 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
+        <div className="flex items-center gap-2">
+          <NotificationCenter
+            userId={userId}
+            isPremium={isPremium}
+            userNiche={context?.creator?.topic || ''}
+          />
+          <button 
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)} 
+            className="p-2 text-[#0F172A] hover:text-[#5352ED] transition-colors"
+          >
+            <FiMenu size={22} />
+          </button>
+        </div>
       </div>
 
       {isMobileMenuOpen && (
@@ -304,10 +318,14 @@ export default function IdeasPage() {
 
       <div className="flex-1 h-full overflow-y-auto bg-[#FFFFFF]">
         <div className="w-full max-w-6xl mx-auto px-6 sm:px-10 lg:px-12 py-6 space-y-6">
-          <div className="flex justify-end items-center gap-5 hidden md:flex">
-            <button className="text-[#94A3B8] hover:text-[#0F172A] transition-colors">
-              <FiBell size={20} />
-            </button>
+          
+          {/* Desktop Topbar */}
+          <div className="justify-end items-center gap-5 hidden md:flex">
+            <NotificationCenter
+              userId={userId}
+              isPremium={isPremium}
+              userNiche={context?.creator?.topic || ''}
+            />
             <div 
               onClick={() => navigate('/profile')}
               className="w-9 h-9 rounded-full border border-[#E2E8F0] flex items-center justify-center overflow-hidden cursor-pointer shadow-2xs shrink-0"
@@ -316,7 +334,7 @@ export default function IdeasPage() {
                 <img 
                   src={avatarUrl} 
                   alt="Profile" 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover" 
                 />
               ) : (
                 <div className="w-full h-full bg-[#FFF0F5] text-[#ED4B9E] flex items-center justify-center text-xs font-semibold">

@@ -4,9 +4,10 @@ import { supabase } from '../services/supabaseClient';
 import { toggleSaveItem } from '../services/savedService';
 import { useSubscription } from '../hooks/useSubscription';
 import SubscriptionPromptModal from '../components/SubscriptionPromptModal';
+import NotificationCenter from '../components/NotificationCenter';
 import {
   FiGrid, FiStar, FiEdit3, FiCompass, FiUser,
-  FiSettings, FiHelpCircle, FiBell, FiX, FiBookmark, FiMessageSquare, FiMenu, FiRotateCcw
+  FiSettings, FiHelpCircle, FiX, FiBookmark, FiMessageSquare, FiMenu, FiRotateCcw
 } from 'react-icons/fi';
 import logo from "../assets/images/LOGO1-removebg-preview.png";
 import emptyStateImg from "../assets/images/empty.png";
@@ -71,6 +72,35 @@ export default function Dashboard() {
 
         if (resolvedAvatar && isMounted) {
           setAvatarUrl(resolvedAvatar);
+        }
+        
+        // --- 3-DAY ROTATION CHECK ---
+        const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+        const generatedTime = data?.recommendations_generated_at 
+          ? new Date(data.recommendations_generated_at).getTime() 
+          : 0;
+
+        const isCycleExpired = (Date.now() - generatedTime) > THREE_DAYS_MS;
+
+        if (isCycleExpired && data?.active_recommendations?.length > 0) {
+          try {
+            const updatedHistory = [
+              ...(data.history_recommendations || []),
+              ...data.active_recommendations
+            ];
+
+            await supabase
+              .from('creator_profiles')
+              .update({
+                history_recommendations: updatedHistory,
+                recommendations_generated_at: new Date().toISOString()
+              })
+              .eq('user_id', user.id);
+
+            data.recommendations_generated_at = new Date().toISOString();
+          } catch (rotateErr) {
+            console.warn("Could not cycle recommendations:", rotateErr);
+          }
         }
 
         if (isMounted) {
@@ -233,6 +263,19 @@ export default function Dashboard() {
 
   const initials = displayName.substring(0, 2).toUpperCase();
 
+  // logic of reflection
+  const IS_TESTING_MODE = true;
+
+  const isReflectionReady = () => {
+    const active = dashboardData?.active_in_progress_recommendation;
+    if (!active?.started_at) return false;
+    if (IS_TESTING_MODE) return true;
+
+    const startedTime = new Date(active.started_at).getTime();
+    const hoursElapsed = (Date.now() - startedTime) / (1000 * 60 * 60);
+    return hoursElapsed >= 24;
+  };
+
   const SidebarContent = () => (
     <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
       <div>
@@ -295,15 +338,23 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A] bg-white font-normal">
 
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-[#FFFFFF]">
-        <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
-        <button
-          type="button"
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="text-[#0F172A] hover:text-[#5352ED] transition-colors"
-        >
-          <FiMenu size={24} />
-        </button>
+      {/* Sticky Mobile Header */}
+      <div className="md:hidden sticky top-0 z-30 flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-xs shadow-2xs">
+        <img src={logo} alt="Logo" className="h-8 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
+        <div className="flex items-center gap-2">
+          <NotificationCenter
+            userId={currentUser?.id}
+            isPremium={isPremium}
+            userNiche={dashboardData?.niche || dashboardData?.creator_type || ''}
+          />
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 text-[#0F172A] hover:text-[#5352ED] transition-colors"
+          >
+            <FiMenu size={22} />
+          </button>
+        </div>
       </div>
 
       {isMobileMenuOpen && (
@@ -324,10 +375,13 @@ export default function Dashboard() {
 
       <div className="flex-1 h-full overflow-y-auto px-5 pb-5 pt-3 md:px-8 md:pb-8 md:pt-4 lg:px-12 lg:pb-12 lg:pt-4 bg-[#FFFFFF]">
 
-        <div className="flex justify-end items-center mb-8 gap-5 hidden md:flex">
-          <button className="text-[#94A3B8] hover:text-[#0F172A] transition-colors">
-            <FiBell size={20} />
-          </button>
+        {/* Desktop Header */}
+        <div className="justify-end items-center mb-8 gap-5 hidden md:flex">
+          <NotificationCenter
+            userId={currentUser?.id}
+            isPremium={isPremium}
+            userNiche={dashboardData?.niche || dashboardData?.creator_type || ''}
+          />
           <div
             onClick={() => navigate('/profile')}
             className="w-9 h-9 rounded-full border border-[#E2E8F0] flex items-center justify-center overflow-hidden shadow-xs cursor-pointer hover:border-[#5352ED] transition-colors shrink-0 bg-[#FFF0F5]"
@@ -407,32 +461,114 @@ export default function Dashboard() {
           </div>
 
           <div className="w-full lg:w-[320px] space-y-4">
+            {/* 1. Completed Reflection */}
             {dashboardData?.recent_reflection ? (
               <>
                 <div className="border border-[#E2E8F0] bg-[#FFFFFF] p-5 rounded-2xl shadow-2xs">
-                  <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-wide">Your Recent Reflection</span>
-                  <h3 className="font-bold mt-2 mb-2 text-[#0F172A]">{dashboardData.recent_reflection.title}</h3>
-                  <p className="text-xs text-[#64748B] mb-4">{dashboardData.recent_reflection.description}</p>
+                  <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-wide">
+                    Your Recent Reflection
+                  </span>
+                  <h3 className="font-bold mt-2 mb-2 text-[#0F172A]">
+                    {dashboardData.recent_reflection.title}
+                  </h3>
+                  <p className="text-xs text-[#64748B] mb-4 leading-relaxed">
+                    {dashboardData.recent_reflection.description}
+                  </p>
                   <button
                     type="button"
-                    className="w-full border border-[#E2E8F0] text-[#0F172A] text-xs font-bold py-2 rounded-xl hover:bg-[#F8FAFC] transition-colors"
+                    onClick={() => navigate('/reflection', { state: { recommendation: dashboardData.recent_reflection } })}
+                    className="w-full border border-[#E2E8F0] text-[#0F172A] text-xs font-bold py-2 rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer"
                   >
-                    Explore Next Step
+                    View & Update Reflection
                   </button>
                 </div>
 
                 <div className="bg-[#F5F2FF] border border-[#E2E8F0] p-5 rounded-2xl shadow-2xs">
-                  <span className="text-[10px] text-[#5352ED] font-bold uppercase tracking-wide">Reflection Follow-Up</span>
-                  <p className="font-bold italic text-sm mt-3 mb-4 text-[#0F172A]">"What was the most rewarding interaction you had with a follower this week?"</p>
+                  <span className="text-[10px] text-[#5352ED] font-bold uppercase tracking-wide">
+                    Reflection Follow-Up
+                  </span>
+                  <p className="font-bold italic text-sm mt-3 mb-4 text-[#0F172A]">
+                    "What was the most rewarding interaction you had with a follower on this post?"
+                  </p>
                   <button
                     type="button"
-                    className="text-[#5352ED] text-xs font-bold hover:underline transition-all"
+                    onClick={() => navigate('/reflection', { state: { recommendation: dashboardData.recent_reflection } })}
+                    className="text-[#5352ED] text-xs font-bold hover:underline transition-all cursor-pointer"
                   >
                     Share Experience →
                   </button>
                 </div>
               </>
+            ) : isReflectionReady() ? (
+              /* 2. Ready to Reflect (Immediate during testing, 24h later in prod) */
+              <>
+                <div className="border border-[#CBD5E1] bg-[#FFFFFF] p-5 rounded-2xl shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-wide">
+                      Time to Reflect
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-[#5352ED] animate-pulse"></span>
+                  </div>
+                  <h3 className="font-bold text-sm text-[#0F172A] leading-snug">
+                    {dashboardData?.active_in_progress_recommendation?.title || "Active Content"}
+                  </h3>
+                  <p className="text-xs text-[#64748B] leading-relaxed">
+                    Now that you've worked on this content, tell CKH how your audience responded so your next advice is even sharper.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/reflection', {
+                      state: {
+                        recommendation: {
+                          title: dashboardData.active_in_progress_recommendation.title,
+                          category: dashboardData.active_in_progress_recommendation.category
+                        }
+                      }
+                    })}
+                    className="w-full bg-[#5352ED] text-white text-xs font-bold py-2.5 rounded-xl hover:bg-[#4342D9] transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    Start Reflection →
+                  </button>
+                </div>
+
+                <div className="bg-[#F5F2FF] border border-[#E2E8F0] p-5 rounded-2xl shadow-2xs">
+                  <span className="text-[10px] text-[#5352ED] font-bold uppercase tracking-wide">
+                    Reflection Follow-Up
+                  </span>
+                  <p className="font-bold italic text-sm mt-3 mb-4 text-[#0F172A]">
+                    "Did you notice questions or comments you didn't anticipate?"
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/reflection', {
+                      state: {
+                        recommendation: {
+                          title: dashboardData?.active_in_progress_recommendation?.title,
+                          category: dashboardData?.active_in_progress_recommendation?.category
+                        }
+                      }
+                    })}
+                    className="text-[#5352ED] text-xs font-bold hover:underline transition-all cursor-pointer"
+                  >
+                    Share Experience →
+                  </button>
+                </div>
+              </>
+            ) : dashboardData?.active_in_progress_recommendation ? (
+              /* 3. Waiting for the 24-hour window */
+              <div className="border border-[#E2E8F0] bg-[#F8FAFC] p-5 rounded-2xl shadow-2xs space-y-2 text-center">
+                <span className="bg-[#EEF2FF] text-[#5352ED] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                  Content In Progress
+                </span>
+                <h4 className="font-bold text-xs text-[#0F172A] mt-2">
+                  {dashboardData.active_in_progress_recommendation.title}
+                </h4>
+                <p className="text-[11px] text-[#64748B] leading-relaxed">
+                  Reflection check-in unlocks tomorrow after your post reaches your audience.
+                </p>
+              </div>
             ) : (
+              /* 4. Empty State */
               <div className="border-2 border-dashed border-[#E2E8F0] bg-transparent p-6 rounded-2xl text-center flex flex-col items-center justify-center h-full min-h-[200px]">
                 <img src={emptyStateImg} alt="No reflections yet" className="w-32 h-32 object-contain mb-4 opacity-90" />
                 <p className="text-[#64748B] text-xs font-medium leading-relaxed">

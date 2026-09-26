@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { isItemSaved, toggleSaveItem } from '../services/savedService';
+import { useSubscription } from '../hooks/useSubscription';
+import NotificationCenter from '../components/NotificationCenter';
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
   FiExternalLink, 
@@ -18,8 +20,7 @@ import {
   FiSettings,
   FiHelpCircle,
   FiX,
-  FiMenu,
-  FiBell
+  FiMenu
 } from 'react-icons/fi';
 
 export default function Opportunities() {
@@ -33,6 +34,8 @@ export default function Opportunities() {
   const [userId, setUserId] = useState(null);
   const [savedIds, setSavedIds] = useState(new Set());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const { isPremium } = useSubscription();
 
   useEffect(() => {
     const loadOpportunities = async () => {
@@ -212,26 +215,34 @@ export default function Opportunities() {
       )}
 
       <main className="flex-1 min-w-0 bg-[#FFFFFF] flex flex-col">
-        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#E2E8F0]">
-          <img src={logo} alt="Logo" className="h-8 w-auto" />
-          <button 
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)} 
-            className="p-2 text-[#64748B]"
-          >
-            <FiMenu size={22} />
-          </button>
+        {/* Sticky Mobile Topbar */}
+        <div className="md:hidden sticky top-0 z-30 flex items-center justify-between p-4 bg-white/95 backdrop-blur-xs border-b border-[#E2E8F0] shadow-2xs">
+          <img src={logo} alt="Logo" className="h-8 w-auto cursor-pointer" onClick={() => navigate('/dashboard')} />
+          <div className="flex items-center gap-2">
+            <NotificationCenter
+              userId={userId}
+              isPremium={isPremium}
+              userNiche={creatorTopic}
+            />
+            <button 
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)} 
+              className="p-2 text-[#64748B] hover:text-[#0F172A] transition-colors"
+            >
+              <FiMenu size={22} />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 md:p-10 space-y-8 max-w-[95%] mx-auto w-full">
           
-          <div className="flex justify-end items-center gap-4">
-            <button 
-              type="button"
-              className="p-2 text-[#64748B] hover:text-[#0F172A] rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <FiBell size={20} />
-            </button>
+          {/* Top header on tablet/desktop */}
+          <div className="justify-end items-center gap-4 hidden md:flex">
+            <NotificationCenter
+              userId={userId}
+              isPremium={isPremium}
+              userNiche={creatorTopic}
+            />
             <div 
               onClick={() => navigate('/profile')}
               className="w-9 h-9 rounded-full border border-[#E2E8F0] flex items-center justify-center overflow-hidden cursor-pointer shadow-xs hover:shadow-md transition-all duration-300 shrink-0"

@@ -18,6 +18,7 @@ import ManageInfoPage from './pages/ManageInfoPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import SavedPage from './pages/SavedPage';
 import RecommendationsPage from './pages/RecommendationsPage';
+import ReflectionPage from './pages/ReflectionPage';
 
 function MainLayout() {
   return (
@@ -56,6 +57,7 @@ function App() {
         <Route path="/account" element={<AccountSettingsPage />} />
         <Route path="/saved" element={<SavedPage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
+        <Route path="/reflection" element={<ReflectionPage />} />
       </Routes>
     </Router>
   );
