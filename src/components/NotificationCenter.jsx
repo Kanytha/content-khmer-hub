@@ -67,7 +67,7 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
               title: 'Reflection follow-up',
               message: 'Tell us how your recent content experience went.',
               type: 'reflection',
-              action_link: '/ideas',
+              action_link: '/reflection',
               is_read: readSet.has('starter-1'),
               created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString()
             },
