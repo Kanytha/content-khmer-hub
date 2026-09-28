@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { generateOpportunityAnalysis } from '../services/aiService';
+import NotificationCenter from '../components/NotificationCenter';
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import {
     FiArrowLeft,
@@ -21,45 +22,91 @@ import {
     FiSettings,
     FiHelpCircle,
     FiX,
-    FiMenu,
-    FiBell
+    FiMenu
 } from 'react-icons/fi';
 
 export default function OpportunityDetails() {
     const location = useLocation();
     const navigate = useNavigate();
-    const { opportunity } = location.state || {};
+    const [searchParams] = useSearchParams();
+    const oppId = searchParams.get('id');
 
+    const [opportunity, setOpportunity] = useState(location.state?.opportunity || null);
     const [analysis, setAnalysis] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saved, setSaved] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    useEffect(() => {
-        if (!opportunity) {
-            navigate('/opportunities');
-            return;
-        }
+    // Profile & Notification Center state
+    const [userId, setUserId] = useState(null);
+    const [isPremium, setIsPremium] = useState(false);
+    const [userNiche, setUserNiche] = useState('');
+    const [initials, setInitials] = useState('CR');
+    const [avatarUrl, setAvatarUrl] = useState(null);
 
-        const fetchAnalysis = async () => {
+    useEffect(() => {
+        const fetchOpportunityAndAnalysis = async () => {
+            let activeOpp = opportunity;
+
+            // 1. If not passed in router state, fetch by ID or get the latest from Supabase
+            if (!activeOpp) {
+                let query = supabase.from('opportunities').select('*');
+                if (oppId) {
+                    query = query.eq('id', oppId);
+                } else {
+                    query = query.order('created_at', { ascending: false }).limit(1);
+                }
+
+                const { data, error } = await query.maybeSingle();
+
+                if (data && !error) {
+                    activeOpp = data;
+                    setOpportunity(data);
+                }
+            }
+
+            // 2. If no opportunity exists anywhere, safely redirect to the main opportunities page
+            if (!activeOpp) {
+                navigate('/opportunities');
+                return;
+            }
+
             setLoading(true);
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 let selections = {};
 
                 if (user) {
+                    setUserId(user.id);
+
+                    // User name & initials
+                    const name = user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator';
+                    const parts = name.trim().split(/\s+/);
+                    const computedInitials = parts.length > 1
+                        ? (parts[0][0] + parts[1][0]).toUpperCase()
+                        : name.slice(0, 2).toUpperCase();
+                    setInitials(computedInitials);
+
+                    const cachedAvatar = localStorage.getItem('user_avatar_url');
+                    if (user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar) {
+                        setAvatarUrl(user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar);
+                    }
+
+                    // Profile data
                     const { data: profile } = await supabase
                         .from('creator_profiles')
-                        .select('onboarding_answers')
+                        .select('*')
                         .eq('user_id', user.id)
-                        .single();
+                        .maybeSingle();
 
-                    if (profile?.onboarding_answers) {
-                        selections = profile.onboarding_answers;
+                    if (profile) {
+                        if (profile.onboarding_answers) selections = profile.onboarding_answers;
+                        if (profile.is_premium) setIsPremium(profile.is_premium);
+                        if (profile.focus || profile.topic) setUserNiche(profile.focus || profile.topic);
                     }
                 }
 
-                const result = await generateOpportunityAnalysis(opportunity, selections);
+                const result = await generateOpportunityAnalysis(activeOpp, selections);
                 setAnalysis(result);
             } catch (err) {
                 console.error("Error analyzing opportunity:", err);
@@ -68,8 +115,8 @@ export default function OpportunityDetails() {
             }
         };
 
-        fetchAnalysis();
-    }, [opportunity, navigate]);
+        fetchOpportunityAndAnalysis();
+    }, [oppId, navigate]);
 
     if (!opportunity) return null;
 
@@ -163,23 +210,37 @@ export default function OpportunityDetails() {
 
                 <div className="p-6 md:p-10 space-y-6 max-w-[95%] mx-auto w-full">
 
-                    {/* Top Right Header matching Dashboard */}
+                    {/* Top Header Matching Dashboard */}
                     <div className="flex justify-between items-center">
-                        {/* Back button */}
                         <button
                             onClick={() => navigate('/opportunities')}
-                            className="flex items-center gap-2 text-xs font-semibold text-[#64748B] hover:text-[#0F172A] transition-colors"
+                            className="flex items-center gap-2 text-xs font-semibold text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
                         >
                             <FiArrowLeft size={16} /> Back to Opportunities
                         </button>
 
                         <div className="flex items-center gap-4">
-                            <button className="p-2 text-[#64748B] hover:text-[#0F172A] rounded-full hover:bg-gray-100 transition-colors">
-                                <FiBell size={20} />
-                            </button>
-                            <div className="w-9 h-9 rounded-full bg-[#FFE4E6] text-[#E11D48] text-xs font-bold flex items-center justify-center border border-[#FECDD3]">
-                                TE
+                            {/* NotificationCenter without the wrapping button element */}
+                            <div className="relative flex items-center">
+                                <NotificationCenter
+                                    userId={userId}
+                                    isPremium={isPremium}
+                                    userNiche={userNiche}
+                                />
                             </div>
+
+                            {/* User Avatar */}
+                            {avatarUrl ? (
+                                <img
+                                    src={avatarUrl}
+                                    alt="Profile"
+                                    className="w-9 h-9 rounded-full object-cover border border-[#E2E8F0]"
+                                />
+                            ) : (
+                                <div className="w-9 h-9 rounded-full bg-[#FFE4E6] text-[#E11D48] text-xs font-bold flex items-center justify-center border border-[#FECDD3]">
+                                    {initials}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -189,7 +250,7 @@ export default function OpportunityDetails() {
                             {opportunity.type}
                         </span>
                         <span className="text-xs text-[#64748B]">
-                            • Source: <strong className="text-[#0F172A]">{opportunity.organizer}</strong>
+                            • Source: <strong className="text-[#0F172A]">{opportunity.organizer || opportunity.source || 'Organizer'}</strong>
                         </span>
                     </div>
 
@@ -217,7 +278,7 @@ export default function OpportunityDetails() {
                                         <div>
                                             <span className="text-[#94A3B8] font-semibold uppercase text-[10px] block">Dates</span>
                                             <span className="font-semibold text-[#0F172A]">
-                                                {opportunity.start_date} {opportunity.end_date !== opportunity.start_date && `– ${opportunity.end_date}`}
+                                                {opportunity.start_date} {opportunity.end_date && opportunity.end_date !== opportunity.start_date && `– ${opportunity.end_date}`}
                                             </span>
                                         </div>
                                     </div>
@@ -323,17 +384,18 @@ export default function OpportunityDetails() {
 
                                 <button
                                     onClick={() => setSaved(!saved)}
-                                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-colors ${saved
+                                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-colors ${
+                                        saved
                                             ? 'bg-[#EEF2FF] border-[#C7D2FE] text-[#4338CA]'
                                             : 'bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-gray-50'
-                                        }`}
+                                    }`}
                                 >
                                     <FiBookmark size={15} /> {saved ? 'Saved to Your List' : 'Save Opportunity'}
                                 </button>
 
                                 <button
                                     onClick={() => navigate('/opportunities')}
-                                    className="w-full text-center text-xs text-[#94A3B8] hover:text-[#64748B] pt-2 transition-colors"
+                                    className="w-full text-center text-xs text-[#94A3B8] hover:text-[#64748B] pt-2 transition-colors cursor-pointer"
                                 >
                                     Mark as Not Relevant
                                 </button>

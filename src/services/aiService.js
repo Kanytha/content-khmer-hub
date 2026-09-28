@@ -1,3 +1,5 @@
+import { supabase } from './supabaseClient';
+
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`;
 
@@ -323,3 +325,32 @@ export const generateOpportunityAnalysis = async (opportunity, selections) => {
     };
   }
 };
+
+// OPPORTUNITY ALERT
+export async function notifyMatchingCreators(newOpp) {
+  try {
+    const oppType = newOpp.type || newOpp.category || 'Scholarships';
+
+    // Find creators whose preferences include this opportunity type
+    const { data: matchedCreators, error } = await supabase
+      .from('creator_profiles')
+      .select('user_id, opportunity_alert_preferences')
+      .contains('opportunity_alert_preferences', [oppType]);
+
+    if (error || !matchedCreators || matchedCreators.length === 0) return;
+
+    // Send notifications only to matching creators
+    const notificationsToInsert = matchedCreators.map(creator => ({
+      user_id: creator.user_id,
+      title: `New ${oppType} Alert`,
+      message: `${newOpp.title || 'A new opportunity'} matches your alert preferences.`,
+      type: 'opportunity_match',
+      action_link: '/opportunities',
+      is_read: false
+    }));
+
+    await supabase.from('notifications').insert(notificationsToInsert);
+  } catch (err) {
+    console.error("Error creating opportunity notification:", err);
+  }
+}

@@ -46,21 +46,75 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
       try {
         const readSet = getReadIdsFromStorage();
 
+        // 1. Fetch real notifications from Supabase
         const { data, error } = await supabase
           .from('notifications')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .limit(15);
+          .limit(25);
+
+        let list = [];
 
         if (!error && data && data.length > 0) {
-          const merged = data.map(item => ({
+          list = data.map(item => ({
             ...item,
             is_read: item.is_read || readSet.has(item.id)
           }));
-          setNotifications(merged);
         } else {
-          const starters = [
+          // 2. Real starter creation timestamps stored once per user
+          const storageKey = `ckh_starter_dates_${userId}`;
+          let starterDates = {};
+          try {
+            starterDates = JSON.parse(localStorage.getItem(storageKey)) || {};
+          } catch {
+            starterDates = {};
+          }
+
+          const now = Date.now();
+
+          // Brand new opportunity just received now!
+          if (!starterDates['starter-opp']) {
+            starterDates['starter-opp'] = new Date(now).toISOString();
+          }
+          // YouTube intelligence just after connecting
+          if (!starterDates['starter-yt']) {
+            starterDates['starter-yt'] = new Date(now - 10 * 60 * 1000).toISOString(); // 10 mins ago
+          }
+          // Reflection from 2 days ago
+          if (!starterDates['starter-1']) {
+            starterDates['starter-1'] = new Date(now - 48 * 60 * 60 * 1000).toISOString(); // 2 days ago
+          }
+          // Welcome note from when they joined
+          if (!starterDates['starter-welcome']) {
+            starterDates['starter-welcome'] = new Date(now - 72 * 60 * 60 * 1000).toISOString(); // 3 days ago
+          }
+
+          localStorage.setItem(storageKey, JSON.stringify(starterDates));
+
+          list = [
+            // TOP: Brand new opportunity you just unlocked/added!
+            {
+              id: 'starter-opp',
+              user_id: userId,
+              title: `${userNiche || 'Content'} Opportunity Available`,
+              message: 'A new opportunity specifically matches your audience style.',
+              type: 'opportunity_match',
+              action_link: '/opportunity-details?spotlight=true',
+              is_read: readSet.has('starter-opp'),
+              created_at: starterDates['starter-opp']
+            },
+            ...(isPremium ? [{
+              id: 'starter-yt',
+              user_id: userId,
+              title: 'New Audience Intelligence',
+              message: 'AI analyzed your latest comments. See viewer sentiment and questions.',
+              type: 'youtube_ai',
+              action_link: '/recommendations',
+              is_read: readSet.has('starter-yt'),
+              created_at: starterDates['starter-yt']
+            }] : []),
+            // Old reflection follow-up from 2 days ago (now correctly below!)
             {
               id: 'starter-1',
               user_id: userId,
@@ -69,31 +123,24 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
               type: 'reflection',
               action_link: '/reflection',
               is_read: readSet.has('starter-1'),
-              created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString()
+              created_at: starterDates['starter-1']
             },
-            ...(isPremium ? [{
-              id: 'starter-yt',
-              user_id: userId,
-              title: 'New Audience Intelligence',
-              message: 'AI analyzed your latest comments. See viewer sentiment and questions.',
-              type: 'youtube_ai',
-              action_link: '/dashboard',
-              is_read: readSet.has('starter-yt'),
-              created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-            }] : []),
             {
-              id: 'starter-opp',
+              id: 'starter-welcome',
               user_id: userId,
-              title: `${userNiche || 'Content'} Opportunity Available`,
-              message: 'A new opportunity specifically matches your audience style.',
-              type: 'opportunity_match',
-              action_link: '/opportunities',
+              title: 'Welcome to Content Khmer Hub',
+              message: 'Set up your preferences to receive matched content ideas.',
+              type: 'system',
+              action_link: '/dashboard',
               is_read: true,
-              created_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString()
+              created_at: starterDates['starter-welcome']
             }
           ];
-          setNotifications(starters);
         }
+
+        // Strict sorting: Newest created_at at the very TOP
+        list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setNotifications(list);
       } catch (err) {
         console.error("Error loading notifications:", err);
       } finally {
@@ -122,6 +169,7 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
   };
 
   const handleNotificationClick = async (notif) => {
+    // 1. Mark as read
     if (!notif.is_read) {
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
       saveReadIdToStorage(notif.id);
@@ -135,20 +183,47 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
         console.error(e);
       }
     }
+
     setIsOpen(false);
+
+    // 2. Smart handling for Audience Intelligence (Free vs Premium)
+    if (notif.type === 'youtube_ai') {
+      if (isPremium) {
+        navigate('/recommendations');
+      } else {
+        navigate('/account');
+      }
+      return;
+    }
+
+    // 3. All other notifications follow their normal action_link
     if (notif.action_link) {
       navigate(notif.action_link);
+    } else {
+      navigate('/dashboard');
     }
   };
 
-  const isToday = (dateString) => {
+  // Helper date group checkers
+  const getDayBucket = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
-    return date.toDateString() === now.toDateString();
+    
+    // Normalize to midnight for accurate day comparison
+    const targetMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    const diffDays = Math.round((todayMidnight - targetMidnight) / oneDayMs);
+
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return 'yesterday';
+    return 'earlier';
   };
 
-  const todayNotifs = notifications.filter(n => isToday(n.created_at));
-  const olderNotifs = notifications.filter(n => !isToday(n.created_at));
+  const todayNotifs = notifications.filter(n => getDayBucket(n.created_at) === 'today');
+  const yesterdayNotifs = notifications.filter(n => getDayBucket(n.created_at) === 'yesterday');
+  const earlierNotifs = notifications.filter(n => getDayBucket(n.created_at) === 'earlier');
 
   const renderIcon = (type) => {
     switch (type) {
@@ -160,6 +235,34 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
         return <FiMessageSquare className="text-[#5352ED]" size={16} />;
     }
   };
+
+  const renderNotificationItem = (item, badgeLabel) => (
+    <div
+      key={item.id}
+      onClick={() => handleNotificationClick(item)}
+      className="flex items-start gap-3 p-2 rounded-2xl hover:bg-[#F8FAFC] transition-colors cursor-pointer group relative"
+    >
+      {!item.is_read && (
+        <span className="w-2 h-2 rounded-full bg-[#5352ED] absolute left-0 top-3.5" />
+      )}
+      <div className="w-9 h-9 rounded-xl bg-[#F5F2FF] flex items-center justify-center shrink-0 ml-2">
+        {renderIcon(item.type)}
+      </div>
+      <div className="flex-1 min-w-0 pr-1">
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <h4 className={`text-xs truncate ${!item.is_read ? 'font-semibold text-[#0F172A]' : 'font-medium text-[#475569]'}`}>
+            {item.title}
+          </h4>
+          <span className="text-[10px] text-[#94A3B8] shrink-0 font-normal">
+            {badgeLabel}
+          </span>
+        </div>
+        <p className="text-[11px] text-[#64748B] leading-relaxed line-clamp-2">
+          {item.message}
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative">
@@ -204,65 +307,38 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
               </div>
             ) : (
               <>
+                {/* 1. TODAY SECTION */}
                 {todayNotifs.length > 0 && (
                   <div className="p-4">
-                    <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">Today</p>
+                    <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">
+                      Today
+                    </p>
                     <div className="space-y-3">
-                      {todayNotifs.map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={() => handleNotificationClick(item)}
-                          className="flex items-start gap-3 p-2 rounded-2xl hover:bg-[#F8FAFC] transition-colors cursor-pointer group relative"
-                        >
-                          {!item.is_read && (
-                            <span className="w-2 h-2 rounded-full bg-[#5352ED] absolute left-0 top-3.5" />
-                          )}
-                          <div className="w-9 h-9 rounded-xl bg-[#F5F2FF] flex items-center justify-center shrink-0 ml-2">
-                            {renderIcon(item.type)}
-                          </div>
-                          <div className="flex-1 min-w-0 pr-1">
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <h4 className={`text-xs truncate ${!item.is_read ? 'font-semibold text-[#0F172A]' : 'font-medium text-[#475569]'}`}>
-                                {item.title}
-                              </h4>
-                              <span className="text-[10px] text-[#94A3B8] shrink-0">Recent</span>
-                            </div>
-                            <p className="text-[11px] text-[#64748B] leading-relaxed line-clamp-2">
-                              {item.message}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                      {todayNotifs.map((item) => renderNotificationItem(item, 'Recent'))}
                     </div>
                   </div>
                 )}
 
-                {olderNotifs.length > 0 && (
+                {/* 2. YESTERDAY SECTION */}
+                {yesterdayNotifs.length > 0 && (
                   <div className="p-4 bg-gray-50/50">
-                    <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">Yesterday</p>
+                    <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">
+                      Yesterday
+                    </p>
                     <div className="space-y-3">
-                      {olderNotifs.map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={() => handleNotificationClick(item)}
-                          className="flex items-start gap-3 p-2 rounded-2xl hover:bg-white transition-colors cursor-pointer group"
-                        >
-                          <div className="w-9 h-9 rounded-xl bg-[#F1F5F9] text-[#64748B] flex items-center justify-center shrink-0">
-                            {renderIcon(item.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <h4 className="text-xs font-medium text-[#475569] truncate">
-                                {item.title}
-                              </h4>
-                              <span className="text-[10px] text-[#94A3B8] shrink-0">Yesterday</span>
-                            </div>
-                            <p className="text-[11px] text-[#94A3B8] leading-relaxed line-clamp-2">
-                              {item.message}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                      {yesterdayNotifs.map((item) => renderNotificationItem(item, 'Yesterday'))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. EARLIER SECTION */}
+                {earlierNotifs.length > 0 && (
+                  <div className="p-4 bg-gray-50/80">
+                    <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">
+                      Earlier
+                    </p>
+                    <div className="space-y-3">
+                      {earlierNotifs.map((item) => renderNotificationItem(item, new Date(item.created_at).toLocaleDateString()))}
                     </div>
                   </div>
                 )}

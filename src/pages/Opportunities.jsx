@@ -113,6 +113,68 @@ export default function Opportunities() {
     });
   };
 
+  const AVAILABLE_ALERT_TYPES = [
+  'Scholarships',
+  'Grants',
+  'Brand Collaborations',
+  'Workshops & Events',
+  'Contests & Awards'
+];
+
+const [alertPrefs, setAlertPrefs] = useState([
+  'Scholarships',
+  'Grants',
+  'Brand Collaborations',
+  'Workshops & Events'
+]);
+const [savingPrefs, setSavingPrefs] = useState(false);
+const [showPrefSavedBadge, setShowPrefSavedBadge] = useState(false);
+
+// Load user's saved preferences on mount
+useEffect(() => {
+  async function loadUserPrefs() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('creator_profiles')
+      .select('opportunity_alert_preferences')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (data?.opportunity_alert_preferences?.length) {
+      setAlertPrefs(data.opportunity_alert_preferences);
+    }
+  }
+  loadUserPrefs();
+}, []);
+
+const handleToggleAlertPref = async (type) => {
+  const updated = alertPrefs.includes(type)
+    ? alertPrefs.filter(t => t !== type)
+    : [...alertPrefs, type];
+
+  setAlertPrefs(updated);
+  setSavingPrefs(true);
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from('creator_profiles')
+        .update({ opportunity_alert_preferences: updated })
+        .eq('user_id', user.id);
+
+      setShowPrefSavedBadge(true);
+      setTimeout(() => setShowPrefSavedBadge(false), 2000);
+    }
+  } catch (err) {
+    console.error("Failed to save alert preferences:", err);
+  } finally {
+    setSavingPrefs(false);
+  }
+};
+
   const filters = ['All', 'Grants', 'Competitions', 'Campaigns', 'Events'];
 
   const filteredOpps = opportunities.filter(opp => {
@@ -330,6 +392,46 @@ export default function Opportunities() {
               </div>
             </div>
           )}
+
+
+        <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-4 sm:p-5 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 className="text-sm font-bold text-[#0F172A]">
+                Notification Preferences
+              </h3>
+              <p className="text-xs text-[#64748B]">
+                Select the types of opportunities you want to receive alerts for in your notification bell.
+              </p>
+            </div>
+            {showPrefSavedBadge && (
+              <span className="text-[11px] font-semibold text-[#10B981] bg-[#ECFDF5] border border-[#A7F3D0] px-3 py-1 rounded-full w-fit animate-fade-in">
+                ✓ Preferences saved
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {AVAILABLE_ALERT_TYPES.map((type) => {
+              const isSelected = alertPrefs.includes(type);
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => handleToggleAlertPref(type)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#5352ED] text-white border-[#5352ED] shadow-xs'
+                      : 'bg-white text-[#64748B] border-[#E2E8F0] hover:border-gray-300'
+                  }`}
+                >
+                  <span>{isSelected ? '✓' : '+'}</span>
+                  <span>{type}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
