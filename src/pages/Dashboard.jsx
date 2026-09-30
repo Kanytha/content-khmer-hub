@@ -28,6 +28,8 @@ export default function Dashboard() {
   const { isPremium, loading: subLoading } = useSubscription();
   const [showPromoModal, setShowPromoModal] = useState(false);
 
+  
+
   useEffect(() => {
     let isMounted = true;
 
@@ -258,10 +260,15 @@ export default function Dashboard() {
     (dashboardData?.username && dashboardData.username !== currentUser?.email?.split('@')[0] ? dashboardData.username : null) ||
     (dashboardData?.full_name && dashboardData.full_name !== currentUser?.email?.split('@')[0] ? dashboardData.full_name : null) ||
     currentUser?.user_metadata?.username ||
+    currentUser?.user_metadata?.full_name ||
+    currentUser?.user_metadata?.name ||
     currentUser?.user_metadata?.display_name ||
     'Creator';
 
-  const initials = displayName.substring(0, 2).toUpperCase();
+  const nameParts = displayName.trim().split(/\s+/);
+  const initials = nameParts.length > 1
+    ? (nameParts[0][0] + nameParts[1][0]).toUpperCase()
+    : displayName.substring(0, 2).toUpperCase();
 
   // logic of reflection
   const IS_TESTING_MODE = true;

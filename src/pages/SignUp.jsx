@@ -69,6 +69,25 @@ export default function SignUp() {
         setSuccess('');
     };
 
+    const handleGoogleAuth = async () => {
+  try {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        // Redirect back to your app after Google login
+        redirectTo: `${window.location.origin}/dashboard`
+      }
+    });
+
+    if (error) throw error;
+  } catch (err) {
+    console.error('Google Sign-In Error:', err.message);
+    alert(err.message || 'Failed to sign in with Google');
+    setLoading(false);
+  }
+};
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -426,10 +445,12 @@ export default function SignUp() {
                         <div className="flex-grow border-t border-[#E2E8F0]" />
                     </div>
 
+
                     <button
                         type="button"
+                        onClick={handleGoogleAuth}
                         disabled={loading}
-                        className="w-full flex items-center justify-center gap-3 border border-[#E2E8F0] bg-white text-[#0F172A] py-2 rounded-lg font-bold text-sm hover:bg-[#F8FAFC] hover:border-[#CBD5E1] transition-all mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 lg:gap-3 border border-[#E2E8F0] bg-white text-[#0F172A] py-3 rounded-lg font-bold text-xs lg:text-sm hover:bg-[#F8FAFC] transition-all shadow-xs mb-6 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                     >
                         <FcGoogle size={18} />
                         Continue with Google
