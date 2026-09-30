@@ -47,18 +47,6 @@ export default function ProfilePage() {
                 }
 
                 const meta = authUser.user_metadata || {};
-                const displayName = meta.username || meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Creator';
-                if (isMounted) setUsername(displayName);
-
-                const parts = displayName.trim().split(/\s+/);
-                const derivedInitials = parts.length > 1
-                    ? (parts[0][0] + parts[1][0]).toUpperCase()
-                    : displayName.slice(0, 2).toUpperCase();
-                if (isMounted) setInitials(derivedInitials);
-
-                if (meta.avatar_url || meta.picture) {
-                    if (isMounted) setAvatarUrl(meta.avatar_url || meta.picture);
-                }
 
                 let localOnboarding = {};
                 try {
@@ -77,6 +65,29 @@ export default function ProfilePage() {
                 ]);
 
                 const dbProfile = profileRes.data || {};
+
+                const displayName =
+                    dbProfile?.username ||
+                    dbProfile?.full_name ||
+                    meta.username ||
+                    meta.full_name ||
+                    meta.name ||
+                    authUser.email?.split('@')[0] ||
+                    'Creator';
+
+                if (isMounted) setUsername(displayName);
+
+                const parts = displayName.trim().split(/\s+/);
+                const derivedInitials = parts.length > 1
+                    ? (parts[0][0] + parts[1][0]).toUpperCase()
+                    : displayName.slice(0, 2).toUpperCase();
+
+                if (isMounted) setInitials(derivedInitials);
+
+                const customAvatar = dbProfile?.avatar_url || localStorage.getItem('user_avatar_url');
+                if (isMounted) {
+                    setAvatarUrl(customAvatar || null);
+                }
                 const obData = onboardingRes.data || {};
                 const userIdeas = ideasRes.data || [];
                 const userComparisons = compRes.data || [];

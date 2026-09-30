@@ -35,17 +35,28 @@ export default function IdeasPage() {
       if (!user) return;
       setUserId(user.id);
 
-      const name = user.user_metadata?.full_name || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
-      const parts = name.trim().split(/\s+/);
+      const { data: profile } = await supabase
+        .from('creator_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const resolvedName =
+        profile?.username ||
+        profile?.full_name ||
+        user.user_metadata?.username ||
+        user.user_metadata?.full_name ||
+        user.email?.split('@')[0] ||
+        'Creator';
+
+      const parts = resolvedName.trim().split(/\s+/);
       const computedInitials = parts.length > 1 
         ? (parts[0][0] + parts[1][0]).toUpperCase() 
-        : name.slice(0, 2).toUpperCase();
+        : resolvedName.slice(0, 2).toUpperCase();
       setInitials(computedInitials);
 
-      const cachedAvatar = localStorage.getItem('user_avatar_url');
-      if (user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar) {
-        setAvatarUrl(user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar);
-      }
+      const customAvatar = profile?.avatar_url || localStorage.getItem('user_avatar_url');
+      setAvatarUrl(customAvatar || null);
 
       const ctx = await getCreatorContext(user.id);
       setContext(ctx);

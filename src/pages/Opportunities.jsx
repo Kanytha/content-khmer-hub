@@ -44,17 +44,7 @@ export default function Opportunities() {
 
         if (user) {
           setUserId(user.id);
-          const name = user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator';
-          const parts = name.trim().split(/\s+/);
-          const computedInitials = parts.length > 1 
-            ? (parts[0][0] + parts[1][0]).toUpperCase() 
-            : name.slice(0, 2).toUpperCase();
-          setInitials(computedInitials);
 
-          const cachedAvatar = localStorage.getItem('user_avatar_url');
-          if (user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar) {
-            setAvatarUrl(user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar);
-          }
 
           const { data: profile } = await supabase
             .from('creator_profiles')
@@ -66,6 +56,23 @@ export default function Opportunities() {
             if (profile.goal || profile.goals) setCurrentGoal(profile.goal || profile.goals[0]);
             if (profile.focus || profile.topic) setCreatorTopic(profile.focus || profile.topic);
           }
+
+          const resolvedName =
+            profile?.username ||
+            profile?.full_name ||
+            user.user_metadata?.username ||
+            user.user_metadata?.full_name ||
+            user.email?.split('@')[0] ||
+            'Creator';
+
+          const parts = resolvedName.trim().split(/\s+/);
+          const computedInitials = parts.length > 1 
+            ? (parts[0][0] + parts[1][0]).toUpperCase() 
+            : resolvedName.slice(0, 2).toUpperCase();
+          setInitials(computedInitials);
+
+          const customAvatar = profile?.avatar_url || localStorage.getItem('user_avatar_url');
+          setAvatarUrl(customAvatar || null);
 
           const rawSaved = localStorage.getItem(`ckh_saved_items_${user.id}`);
           if (rawSaved) {
