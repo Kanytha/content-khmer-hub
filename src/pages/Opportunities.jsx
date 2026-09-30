@@ -253,7 +253,10 @@ const handleToggleAlertPref = async (type) => {
         >
           <FiSettings size={18} /> Settings
         </div>
-        <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold">
+        <div
+          onClick={() => navigate('/support')}
+          className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+        >
           <FiHelpCircle size={18} /> Support
         </div>
       </div>

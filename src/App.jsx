@@ -19,6 +19,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage';
 import SavedPage from './pages/SavedPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import ReflectionPage from './pages/ReflectionPage';
+import SupportPage from './pages/SupportPage';
 
 function MainLayout() {
   return (
@@ -58,6 +59,7 @@ function App() {
         <Route path="/saved" element={<SavedPage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
         <Route path="/reflection" element={<ReflectionPage />} />
+        <Route path="/support" element={<SupportPage />} />
       </Routes>
     </Router>
   );
