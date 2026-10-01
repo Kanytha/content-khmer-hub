@@ -657,14 +657,14 @@ export default function ProfilePage() {
                                         <span>Manage My Information</span>
                                     </div>
                                     <div
-                                        onClick={() => navigate('/edit-profile')}
+                                        onClick={() => navigate('/support')}
                                         className="py-3 flex items-center justify-between cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
                                         <span>How CKH Uses My Information</span>
                                         <FiChevronRight className="text-[#94A3B8]" size={15} />
                                     </div>
                                     <div
-                                        onClick={() => navigate('/edit-profile')}
+                                        onClick={() => navigate('/privacy')}
                                         className="py-3 flex items-center justify-between cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
                                         <span>Privacy & Data</span>

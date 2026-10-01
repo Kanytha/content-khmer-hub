@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
+import { useSubscription } from '../hooks/useSubscription';
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
   FiGrid, FiStar, FiEdit3, FiCompass, FiUser, 
@@ -32,6 +33,8 @@ export default function AccountSettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState('');
+
+  const { isPremium } = useSubscription();
 
   useEffect(() => {
     async function loadAccountData() {
@@ -581,10 +584,13 @@ export default function AccountSettingsPage() {
                   Account Information
                 </h3>
                 <div className="space-y-3 pt-2 text-xs divide-y divide-gray-100">
-                  <div className="flex items-center justify-between pb-2">
-                    <span className="text-[10px] uppercase tracking-wider text-[#94A3B8]">ACCOUNT TYPE</span>
-                    <span className="bg-[#F1F5F9] text-[#334155] px-2.5 py-0.5 rounded-md font-medium text-xs">
-                      Free Plan
+                  <div className="flex items-center justify-between py-2 border-b border-[#F1F5F9]">
+                    <span className="text-[11px] uppercase font-bold text-[#94A3B8] tracking-wider">Account Type</span>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full transition-colors ${isPremium
+                        ? 'bg-[#EEF2FF] text-[#5352ED] border border-[#E0E7FF]'
+                        : 'bg-slate-100 text-slate-600'
+                      }`}>
+                      {isPremium ? 'Premium Plan' : 'Free Plan'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between pt-2">

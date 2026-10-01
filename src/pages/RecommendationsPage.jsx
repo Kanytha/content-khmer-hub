@@ -23,6 +23,7 @@ export default function RecommendationsPage() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
     const [youtubeData, setYoutubeData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         let isMounted = true;
@@ -90,6 +91,10 @@ export default function RecommendationsPage() {
                 }
             } catch (err) {
                 console.error("Error loading recommendation page data:", err);
+            }finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         }
 
@@ -208,7 +213,9 @@ export default function RecommendationsPage() {
                             </p>
                         </div>
 
-                        {!isPremium ? (
+                        {isLoading ? (
+                            <div className="h-9 w-36 bg-slate-200/70 animate-pulse rounded-xl shrink-0" />
+                        ) : !isPremium ? (
                             <button
                                 type="button"
                                 onClick={() => setIsUpgradeModalOpen(true)}
