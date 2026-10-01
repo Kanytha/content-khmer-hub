@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../hooks/useSubscription';
+import { supabase } from '../services/supabaseClient';
 import UpgradeModal from '../components/UpgradeModal';
 import {
     connectYouTubeChannel,
@@ -24,21 +25,106 @@ export default function RecommendationsPage() {
     const [youtubeData, setYoutubeData] = useState(null);
 
     useEffect(() => {
-        async function loadIntelligence() {
-            if (!isPremium) return;
+        let isMounted = true;
+
+        async function initPageData() {
             try {
-                const token = await getValidYouTubeToken();
-                if (token) {
+                // 1. Grab session directly from Supabase
+                const { data: { session } } = await supabase.auth.getSession();
+                const user = session?.user || (await supabase.auth.getUser()).data.user;
+                if (!user) return;
+
+                // 2. If returning from Google with a fresh provider token, fetch and sync immediately
+                if (session?.provider_token) {
+                    localStorage.setItem(`ckh_yt_token_${user.id}`, session.provider_token);
+                    const freshData = await fetchChannelIntelligence(session.provider_token);
+                    if (freshData && isMounted) {
+                        setYoutubeData(freshData);
+                        setIsConnected(true);
+                        localStorage.setItem(`ckh_yt_data_${user.id}`, JSON.stringify(freshData));
+                        return;
+                    }
+                }
+
+                // 3. Fallback: Restore saved channel data from Supabase & localStorage
+                const [profileRes, connRes] = await Promise.all([
+                    supabase.from('creator_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+                    supabase.from('creator_youtube_connections').select('*').eq('user_id', user.id).maybeSingle()
+                ]);
+
+                const profile = profileRes.data;
+                const ytConn = connRes.data;
+
+                let cachedData = profile?.youtube_data;
+                if (!cachedData) {
+                    try {
+                        const localRaw = localStorage.getItem(`ckh_yt_data_${user.id}`);
+                        if (localRaw) cachedData = JSON.parse(localRaw);
+                    } catch (e) {}
+                }
+
+                if (cachedData && isMounted) {
+                    setYoutubeData(cachedData);
                     setIsConnected(true);
-                    const data = await fetchChannelIntelligence(token);
-                    if (data) setYoutubeData(data);
+                }
+
+                // 3. Pro subscription check
+                const now = new Date();
+                const deadline = profile?.premium_until || profile?.current_period_end || profile?.subscription_end;
+                const hasValidPeriod = deadline && new Date(deadline) > now;
+                const userHasPro = Boolean(isPremium || profile?.is_premium || hasValidPeriod);
+
+                // 4. Check for token (session or stored)
+                const token = await getValidYouTubeToken();
+                if (token && userHasPro) {
+                    try {
+                        const liveData = await fetchChannelIntelligence(token);
+                        if (liveData && isMounted) {
+                            setYoutubeData(liveData);
+                            setIsConnected(true);
+                            localStorage.setItem(`ckh_yt_data_${user.id}`, JSON.stringify(liveData));
+                        }
+                    } catch (e) {
+                        console.warn("Background channel sync error:", e);
+                    }
                 }
             } catch (err) {
-                console.error(err);
+                console.error("Error loading recommendation page data:", err);
             }
         }
-        loadIntelligence();
+
+        initPageData();
+
+        // 5. OAuth redirect listener: catches Google token right as you redirect back
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session?.provider_token && isMounted) {
+                localStorage.setItem(`ckh_yt_token_${session.user.id}`, session.provider_token);
+                try {
+                    const liveData = await fetchChannelIntelligence(session.provider_token);
+                    if (liveData && isMounted) {
+                        setYoutubeData(liveData);
+                        setIsConnected(true);
+                        localStorage.setItem(`ckh_yt_data_${session.user.id}`, JSON.stringify(liveData));
+                    }
+                } catch (e) {
+                    console.error("Auth state change fetch error:", e);
+                }
+            }
+        });
+
+        return () => {
+            isMounted = false;
+            subscription?.unsubscribe();
+        };
     }, [isPremium]);
+
+    const handleConnect = async () => {
+        try {
+            await connectYouTubeChannel();
+        } catch (error) {
+            console.error("Failed to connect channel:", error);
+        }
+    };
 
     const SidebarContent = ({ onClose }) => (
         <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
@@ -133,7 +219,7 @@ export default function RecommendationsPage() {
                         ) : !isConnected ? (
                             <button
                                 type="button"
-                                onClick={connectYouTubeChannel}
+                                onClick={handleConnect}
                                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#DC2626] text-white text-xs font-semibold hover:bg-[#B91C1C] transition-colors shrink-0 shadow-xs cursor-pointer"
                             >
                                 <FiYoutube size={16} /> Connect YouTube
@@ -207,7 +293,7 @@ export default function RecommendationsPage() {
                                             <FiUsers size={14} /> Subscribers
                                         </div>
                                         <div className="text-xl sm:text-2xl font-bold text-[#0F172A]">
-                                            {Number(youtubeData.subscribers).toLocaleString()}
+                                            {Number(youtubeData?.subscribers || 0).toLocaleString()}
                                         </div>
                                     </div>
                                     <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 text-center">
@@ -215,7 +301,7 @@ export default function RecommendationsPage() {
                                             <FiEye size={14} /> Total Views
                                         </div>
                                         <div className="text-xl sm:text-2xl font-bold text-[#0F172A]">
-                                            {Number(youtubeData.totalViews).toLocaleString()}
+                                            {Number(youtubeData?.totalViews || 0).toLocaleString()}
                                         </div>
                                     </div>
                                     <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 text-center">
@@ -223,7 +309,7 @@ export default function RecommendationsPage() {
                                             <FiVideo size={14} /> Videos Uploaded
                                         </div>
                                         <div className="text-xl sm:text-2xl font-bold text-[#0F172A]">
-                                            {Number(youtubeData.videoCount).toLocaleString()}
+                                            {Number(youtubeData?.videoCount || 0).toLocaleString()}
                                         </div>
                                     </div>
                                 </div>
@@ -231,30 +317,36 @@ export default function RecommendationsPage() {
 
                             <div className="space-y-3">
                                 <h2 className="text-sm font-bold uppercase tracking-wider text-[#64748B]">Recent Content</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {(youtubeData?.videos || []).slice(0, 3).map((v, i) => (
-                                        <a
-                                            key={i}
-                                            href={`https://www.youtube.com/watch?v=${v.id}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="group border border-[#E2E8F0] rounded-2xl p-4 bg-white space-y-2 shadow-2xs hover:border-[#5352ED] transition-all cursor-pointer block"
-                                        >
-                                            <div className="h-32 bg-[#E2E8F0] rounded-xl overflow-hidden flex items-center justify-center text-xs text-[#94A3B8]">
-                                                {v.thumbnail ? (
-                                                    <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
-                                                ) : 'Thumbnail'}
-                                            </div>
-                                            <h3 className="font-semibold text-xs text-[#1E293B] truncate group-hover:text-[#5352ED] transition-colors">
-                                                {v.title}
-                                            </h3>
-                                            <div className="flex justify-between text-[11px] text-[#64748B]">
-                                                <span>{Number(v.views).toLocaleString()} views</span>
-                                                <span>{v.comments} comments</span>
-                                            </div>
-                                        </a>
-                                    ))}
-                                </div>
+                                {(youtubeData?.videos && youtubeData.videos.length > 0) ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {youtubeData.videos.slice(0, 3).map((v, i) => (
+                                            <a
+                                                key={i}
+                                                href={`https://www.youtube.com/watch?v=${v.id}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="group border border-[#E2E8F0] rounded-2xl p-4 bg-white space-y-2 shadow-2xs hover:border-[#5352ED] transition-all cursor-pointer block"
+                                            >
+                                                <div className="h-32 bg-[#E2E8F0] rounded-xl overflow-hidden flex items-center justify-center text-xs text-[#94A3B8]">
+                                                    {v.thumbnail ? (
+                                                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                                                    ) : 'Thumbnail'}
+                                                </div>
+                                                <h3 className="font-semibold text-xs text-[#1E293B] truncate group-hover:text-[#5352ED] transition-colors">
+                                                    {v.title}
+                                                </h3>
+                                                <div className="flex justify-between text-[11px] text-[#64748B]">
+                                                    <span>{Number(v.views || 0).toLocaleString()} views</span>
+                                                    <span>{v.comments || 0} comments</span>
+                                                </div>
+                                            </a>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 bg-white border border-[#E2E8F0] rounded-2xl text-center text-xs text-[#64748B]">
+                                        No public videos uploaded yet on this channel. As you post videos, CKH will audit them here automatically!
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

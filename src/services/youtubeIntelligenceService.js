@@ -7,40 +7,23 @@ export async function connectYouTubeChannel() {
   localStorage.removeItem(`ckh_yt_disconnected_${user.id}`);
   localStorage.setItem('ckh_connecting_uid', user.id);
 
-  try {
-    // Attempt linkIdentity first
-    const { data, error } = await supabase.auth.linkIdentity({
-      provider: 'google',
-      options: {
-        scopes: 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly',
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent'
-        },
-        redirectTo: `${window.location.origin}/recommendations`
-      }
-    });
+  const redirectUrl = `${window.location.origin}/recommendations`;
 
-    if (error) throw error;
-    return data;
-  } catch (err) {
-    // If manual linking is turned off in Supabase, fall back to OAuth with same redirect
-    console.warn('Manual link fallback, launching OAuth:', err.message);
-    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        scopes: 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly',
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent'
-        },
-        redirectTo: `${window.location.origin}/recommendations`
-      }
-    });
+  // Directly call signInWithOAuth with forced consent so Google always issues a provider_token
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      scopes: 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly',
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent'
+      },
+      redirectTo: redirectUrl
+    }
+  });
 
-    if (oauthError) throw oauthError;
-    return data;
-  }
+  if (error) throw error;
+  return data;
 }
 
 export async function disconnectYouTubeChannel() {
@@ -49,7 +32,17 @@ export async function disconnectYouTubeChannel() {
 
   localStorage.setItem(`ckh_yt_disconnected_${user.id}`, 'true');
   localStorage.removeItem(`ckh_yt_token_${user.id}`);
+  localStorage.removeItem(`ckh_yt_data_${user.id}`);
   localStorage.removeItem('ckh_yt_token');
+
+  await supabase
+    .from('creator_profiles')
+    .update({
+      youtube_connected: false,
+      youtube_channel_title: null,
+      youtube_data: null
+    })
+    .eq('user_id', user.id);
 
   await supabase
     .from('creator_youtube_connections')
@@ -65,14 +58,45 @@ export async function getValidYouTubeToken() {
     return null;
   }
 
+  // 1. Check current session provider token
   const { data: { session } } = await supabase.auth.getSession();
-  
   if (session?.provider_token) {
     localStorage.setItem(`ckh_yt_token_${user.id}`, session.provider_token);
+    
+    await supabase.from('creator_youtube_connections').upsert({
+      user_id: user.id,
+      access_token: session.provider_token,
+      is_active: true,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
     return session.provider_token;
   }
-  
-  return localStorage.getItem(`ckh_yt_token_${user.id}`) || null;
+
+  // 2. Check localStorage
+  const localToken = localStorage.getItem(`ckh_yt_token_${user.id}`);
+  if (localToken) {
+    return localToken;
+  }
+
+  // 3. Check creator_youtube_connections table
+  try {
+    const { data, error } = await supabase
+      .from('creator_youtube_connections')
+      .select('access_token, is_active')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!error && data?.access_token) {
+      localStorage.setItem(`ckh_yt_token_${user.id}`, data.access_token);
+      return data.access_token;
+    }
+  } catch (e) {
+    console.error('Database token fetch error:', e);
+  }
+
+  return null;
 }
 
 export async function fetchChannelIntelligence(accessToken) {
@@ -81,38 +105,99 @@ export async function fetchChannelIntelligence(accessToken) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
 
+    // 1. Fetch channel profile
     const channelRes = await fetch(
       'https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails,statistics&mine=true',
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
+
+    if (channelRes.status === 401) {
+      console.warn("YouTube token expired (401). Falling back to database.");
+      if (user) {
+        const { data: existing } = await supabase
+          .from('creator_profiles')
+          .select('youtube_data')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (existing?.youtube_data) return existing.youtube_data;
+      }
+      return null;
+    }
+
     if (!channelRes.ok) return null;
     const channelData = await channelRes.json();
     const channel = channelData.items?.[0];
-    if (!channel) return null;
 
+    if (!channel) {
+      console.warn("No YouTube channel found for this Google account.");
+      return null;
+    }
+
+    // 2. Fetch all channel videos (historical + recent)
+    let videoItems = [];
     const uploadsPlaylistId = channel.contentDetails?.relatedPlaylists?.uploads;
 
-    const playlistRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=15`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    const playlistData = await playlistRes.json();
-    const videoItems = playlistData.items || [];
-    const videoIds = videoItems.map(i => i.snippet?.resourceId?.videoId).filter(Boolean).join(',');
-
-    let videoStats = [];
-    if (videoIds) {
-      const statsRes = await fetch(
-        `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds}`,
+    try {
+      const searchAllRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channel.id}&type=video&order=date&maxResults=50`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        videoStats = statsData.items || [];
+      if (searchAllRes.ok) {
+        const searchAllData = await searchAllRes.json();
+        videoItems = (searchAllData.items || []).map(item => ({
+          snippet: item.snippet,
+          videoId: item.id?.videoId
+        }));
+      }
+    } catch (e) {
+      console.warn("Direct channel video search failed, trying playlist:", e);
+    }
+
+    if (videoItems.length === 0 && uploadsPlaylistId) {
+      try {
+        const playlistRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=50`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (playlistRes.ok) {
+          const playlistData = await playlistRes.json();
+          videoItems = (playlistData.items || []).map(item => ({
+            snippet: item.snippet,
+            videoId: item.snippet?.resourceId?.videoId
+          }));
+        }
+      } catch (err) {
+        console.warn("Could not fetch playlist items:", err);
       }
     }
 
-    // 3. Fetch verbatim viewer comments safely
+    const videoIds = videoItems.map(i => i.videoId).filter(Boolean).join(',');
+
+    let videoStats = [];
+    if (videoIds) {
+      try {
+        const statsRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          videoStats = statsData.items || [];
+        }
+      } catch (err) {
+        console.warn("Could not fetch video stats:", err);
+      }
+    }
+
+    if (videoStats.length === 0 && videoItems.length > 0) {
+      videoStats = videoItems.map(item => ({
+        id: item.videoId,
+        snippet: item.snippet,
+        statistics: { viewCount: 0, likeCount: 0, commentCount: 0 }
+      }));
+    }
+
+    // 3. Fetch comments
     let rawComments = [];
     for (const vid of videoStats.slice(0, 6)) {
       if (Number(vid.statistics?.commentCount || 0) > 0) {
@@ -142,6 +227,7 @@ export async function fetchChannelIntelligence(accessToken) {
       }
     }
 
+    // 4. Channel Profile analysis
     const allTitles = videoStats.map(v => v.snippet?.title || '');
     const channelCoreProfile = analyzeChannelProfile(allTitles, channel.snippet.description || '');
 
@@ -149,7 +235,7 @@ export async function fetchChannelIntelligence(accessToken) {
     let trendingKeywords = [];
 
     try {
-      const coreSearchQuery = channelCoreProfile.primarySearchQuery;
+      const coreSearchQuery = channelCoreProfile.primarySearchQuery || 'Khmer coding tutorial web development';
       const searchRes = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(coreSearchQuery)}&type=video&maxResults=6`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -186,22 +272,22 @@ export async function fetchChannelIntelligence(accessToken) {
       dominantNiche: channelCoreProfile.dominantNiche
     });
 
-    const titleAudit = await auditTitles(videoStats, channelCoreProfile);
+    const titleAudit = videoStats.length > 0 ? await auditTitles(videoStats, channelCoreProfile) : null;
 
     const assembledIntelligence = {
       channelTitle: channel.snippet.title,
-      subscribers: channel.statistics.subscriberCount,
-      totalViews: channel.statistics.viewCount,
-      videoCount: channel.statistics.videoCount,
+      subscribers: channel.statistics?.subscriberCount || 0,
+      totalViews: channel.statistics?.viewCount || 0,
+      videoCount: channel.statistics?.videoCount || 0,
       dominantNiche: channelCoreProfile.dominantNiche,
       videos: videoStats.map(v => ({
         id: v.id,
         title: v.snippet.title,
         description: v.snippet.description,
         thumbnail: v.snippet.thumbnails?.medium?.url,
-        views: v.statistics.viewCount,
-        likes: v.statistics.likeCount || 0,
-        comments: v.statistics.commentCount || 0
+        views: v.statistics?.viewCount || 0,
+        likes: v.statistics?.likeCount || 0,
+        comments: v.statistics?.commentCount || 0
       })),
       recentComments: rawComments,
       inspirationVideos,
@@ -210,7 +296,17 @@ export async function fetchChannelIntelligence(accessToken) {
       titleAudit
     };
 
+    // 5. Persist to Supabase
     if (user) {
+      await supabase
+        .from('creator_profiles')
+        .update({
+          youtube_connected: true,
+          youtube_channel_title: channel.snippet.title,
+          youtube_data: assembledIntelligence
+        })
+        .eq('user_id', user.id);
+
       await supabase
         .from('creator_youtube_connections')
         .upsert({
