@@ -4,6 +4,8 @@ import { supabase } from '../services/supabaseClient';
 import { isItemSaved, toggleSaveItem } from '../services/savedService';
 import { useSubscription } from '../hooks/useSubscription';
 import NotificationCenter from '../components/NotificationCenter';
+import EditContextModal from "../components/EditContextModal";
+import SettingsPopover from "../components/SettingsPopover";
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
   FiExternalLink, 
@@ -36,6 +38,7 @@ export default function Opportunities() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { isPremium } = useSubscription();
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
 
   useEffect(() => {
     const loadOpportunities = async () => {
@@ -96,6 +99,27 @@ export default function Opportunities() {
 
     loadOpportunities();
   }, []);
+
+  const handleSaveContext = async ({ goal, focus, contextPeriod }) => {
+    if (focus) setCreatorTopic(focus);
+    if (goal) setCurrentGoal(goal);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('creator_profiles')
+          .update({
+            topic: focus,
+            goals: goal,
+            context_period: contextPeriod
+          })
+          .eq('user_id', user.id);
+      }
+    } catch (err) {
+      console.error("Failed to update creator context:", err);
+    }
+  };
 
   const handleToggleSaveOpp = (opp) => {
     if (!userId) return;
@@ -254,12 +278,7 @@ const handleToggleAlertPref = async (type) => {
       </div>
 
       <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-        <div 
-          onClick={() => navigate('/account')}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
-        >
-          <FiSettings size={18} /> Settings
-        </div>
+        <SettingsPopover />
         <div
           onClick={() => navigate('/support')}
           className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
@@ -344,10 +363,10 @@ const handleToggleAlertPref = async (type) => {
             <div className="text-xs text-[#4338CA] font-medium">
               <span>Relevant to your current focus: <strong>{currentGoal}</strong> ({creatorTopic})</span>
             </div>
-            <button 
+            <button
               type="button"
-              onClick={() => navigate('/edit-profile')}
-              className="text-xs text-[#5352ED] font-semibold hover:underline"
+              onClick={() => setIsContextModalOpen(true)}
+              className="text-xs text-[#5352ED] font-semibold hover:underline cursor-pointer"
             >
               Change focus
             </button>
@@ -536,6 +555,21 @@ const handleToggleAlertPref = async (type) => {
 
         </div>
       </main>
+      
+      <EditContextModal
+        isOpen={isContextModalOpen}
+        onClose={() => setIsContextModalOpen(false)}
+        context={{
+          creator: {
+            goals: currentGoal || 'Reach More People',
+            topic: creatorTopic || 'Education'
+          },
+          currentContext: {
+            contextPeriod: 'Current semester / Active exam cycle'
+          }
+        }}
+        onSave={handleSaveContext}
+      />
 
     </div>
   );

@@ -76,6 +76,10 @@ Return valid JSON with this exact schema:
   const result = await model.generateContent(prompt);
   const evaluation = JSON.parse(result.response.text());
 
+  const finalFormat = (idea.intended_format && idea.intended_format !== 'Not sure yet')
+    ? idea.intended_format
+    : (evaluation.format_suggested || 'Short video');
+
   // Save evaluation to Supabase
   const { data, error } = await supabase
     .from('idea_evaluations')
@@ -88,9 +92,9 @@ Return valid JSON with this exact schema:
       current_direction: evaluation.current_direction,
       recent_experience: evaluation.recent_experience,
       timing_context: evaluation.timing_context,
-      format_suggested: evaluation.format_suggested,
+      format_suggested: finalFormat,
       one_thing_to_consider: evaluation.one_thing_to_consider,
-      full_evaluation_json: evaluation
+      full_evaluation_json: { ...evaluation, format_suggested: finalFormat }
     })
     .select()
     .single();

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../hooks/useSubscription';
 import { supabase } from '../services/supabaseClient';
 import UpgradeModal from '../components/UpgradeModal';
+import SettingsPopover from "../components/SettingsPopover";
+import { useLanguage } from '../context/LanguageContext';
 import {
     connectYouTubeChannel,
     fetchChannelIntelligence,
@@ -24,6 +26,8 @@ export default function RecommendationsPage() {
     const [isConnected, setIsConnected] = useState(false);
     const [youtubeData, setYoutubeData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    const { t } = useLanguage();
 
     useEffect(() => {
         let isMounted = true;
@@ -61,7 +65,7 @@ export default function RecommendationsPage() {
                     try {
                         const localRaw = localStorage.getItem(`ckh_yt_data_${user.id}`);
                         if (localRaw) cachedData = JSON.parse(localRaw);
-                    } catch (e) {}
+                    } catch (e) { }
                 }
 
                 if (cachedData && isMounted) {
@@ -91,7 +95,7 @@ export default function RecommendationsPage() {
                 }
             } catch (err) {
                 console.error("Error loading recommendation page data:", err);
-            }finally {
+            } finally {
                 if (isMounted) {
                     setIsLoading(false);
                 }
@@ -131,7 +135,10 @@ export default function RecommendationsPage() {
         }
     };
 
-    const SidebarContent = ({ onClose }) => (
+    const SidebarContent = ({ onClose }) => {
+        const { t } = useLanguage();
+
+        return (
         <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
             <div>
                 <div className="px-2 mb-10 flex justify-between items-center">
@@ -143,36 +150,35 @@ export default function RecommendationsPage() {
 
                 <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
                     <div onClick={() => navigate('/dashboard')} className="flex items-center gap-3 px-4 py-3 hover:bg-white rounded-xl cursor-pointer">
-                        <FiGrid size={18} /> Dashboard
+                        <FiGrid size={18} /> {t('dashboard')}
                     </div>
                     <div className="flex items-center gap-3 bg-white text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-bold">
-                        <FiStar size={18} /> Recommendations
+                        <FiStar size={18} /> {t('recommendations')}
                     </div>
                     <div onClick={() => navigate('/ideas')} className="flex items-center gap-3 px-4 py-3 hover:bg-white rounded-xl cursor-pointer">
-                        <FiEdit3 size={18} /> Ideas
+                        <FiEdit3 size={18} /> {t('ideas')}
                     </div>
                     <div onClick={() => navigate('/opportunities')} className="flex items-center gap-3 px-4 py-3 hover:bg-white rounded-xl cursor-pointer">
-                        <FiCompass size={18} /> Opportunities
+                        <FiCompass size={18} /> {t('opportunities')}
                     </div>
                     <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-4 py-3 hover:bg-white rounded-xl cursor-pointer">
-                        <FiUser size={18} /> Profile
+                        <FiUser size={18} /> {t('profile')}
                     </div>
                 </nav>
             </div>
 
             <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-                <div onClick={() => navigate('/account')} className="flex items-center gap-3 px-4 py-3 hover:bg-white rounded-xl cursor-pointer">
-                    <FiSettings size={18} /> Settings
-                </div>
+                <SettingsPopover onCloseParent={onClose} />
                 <div
                     onClick={() => navigate('/support')}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
                 >
-                    <FiHelpCircle size={18} /> Support
+                    <FiHelpCircle size={18} /> {t('support')}
                 </div>
             </div>
         </div>
     );
+};
 
     return (
         <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A] bg-white">
@@ -202,14 +208,14 @@ export default function RecommendationsPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A]">Recommendations</h1>
+                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A]">{t('recTitle')}</h1>
                                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${isPremium ? 'bg-[#EEF2FF] text-[#5352ED]' : 'bg-slate-100 text-slate-600'
                                     }`}>
-                                    {isPremium ? 'Premium Plan' : 'Free Plan'}
+                                    {isPremium ? t('premiumPlan') : t('freePlan')}
                                 </span>
                             </div>
                             <p className="text-xs sm:text-sm text-[#64748B] mt-1">
-                                Data-driven strategic suggestions tailored to elevate your content output.
+                                {t('recSubtitle')}
                             </p>
                         </div>
 
@@ -239,34 +245,35 @@ export default function RecommendationsPage() {
                         )}
                     </div>
 
-                    {/* BASIC RECOMMENDATIONS */}
+                    
+                    {/* BASIC RECOMMENDATIONS - BILINGUAL */}
                     <div className="border border-[#E2E8F0] rounded-3xl p-6 bg-white space-y-4">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-base font-bold text-[#0F172A]">Content Foundations</h2>
+                            <h2 className="text-base font-bold text-[#0F172A]">{t('contentFoundations')}</h2>
                             <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${isPremium
-                                    ? 'bg-[#EEF2FF] text-[#5352ED]'
-                                    : 'bg-slate-100 text-slate-600'
+                                ? 'bg-[#EEF2FF] text-[#5352ED]'
+                                : 'bg-slate-100 text-slate-600'
                                 }`}>
-                                {isPremium ? 'Included with Premium' : 'Free Tier'}
+                                {isPremium ? t('includedWithPremium') : t('freeTier')}
                             </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl space-y-1">
-                                <span className="text-xs font-bold text-[#0F172A]">Consistency Blueprint</span>
+                                <span className="text-xs font-bold text-[#0F172A]">{t('consistencyTitle')}</span>
                                 <p className="text-[11px] text-[#64748B] leading-relaxed">
-                                    Publishing 1 thorough project walkthrough or lesson per week yields the highest long-term retention.
+                                    {t('consistencyDesc')}
                                 </p>
                             </div>
                             <div className="p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl space-y-1">
-                                <span className="text-xs font-bold text-[#0F172A]">Hook Structure</span>
+                                <span className="text-xs font-bold text-[#0F172A]">{t('hookTitle')}</span>
                                 <p className="text-[11px] text-[#64748B] leading-relaxed">
-                                    Demonstrate the final working app or outcome within the first 15 seconds before explaining syntax.
+                                    {t('hookDesc')}
                                 </p>
                             </div>
                             <div className="p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl space-y-1">
-                                <span className="text-xs font-bold text-[#0F172A]">Khmer Search Optimization</span>
+                                <span className="text-xs font-bold text-[#0F172A]">{t('khmerSearchTitle')}</span>
                                 <p className="text-[11px] text-[#64748B] leading-relaxed">
-                                    Combine English tech terminology with Khmer search descriptors in titles (e.g., C++ សម្រាប់អ្នកចាប់ផ្តើម).
+                                    {t('khmerSearchDesc')}
                                 </p>
                             </div>
                         </div>
@@ -278,16 +285,16 @@ export default function RecommendationsPage() {
                                 <div className="w-12 h-12 rounded-2xl bg-[#EEF2FF] text-[#5352ED] flex items-center justify-center mx-auto shadow-xs">
                                     <FiLock size={22} />
                                 </div>
-                                <h3 className="text-xl font-bold text-[#0F172A]">Unlock Personalized Creator Intelligence</h3>
+                                <h3 className="text-xl font-bold text-[#0F172A]">{t('unlockTitle')}</h3>
                                 <p className="text-xs text-[#64748B] leading-relaxed">
-                                    Connect your YouTube channel to analyze verbatim viewer comments, evaluate your video titles, track audience demographics, and uncover trending topic signals.
+                                    {t('unlockDesc')}
                                 </p>
                                 <button
                                     type="button"
                                     onClick={() => setIsUpgradeModalOpen(true)}
                                     className="px-6 py-3 bg-[#5352ED] hover:bg-[#4342D9] text-white text-xs font-bold rounded-xl shadow-md transition-all inline-flex items-center gap-2 cursor-pointer"
                                 >
-                                    <FiZap size={14} /> Upgrade to Premium for $2.99/mo
+                                    <FiZap size={14} /> {t('upgradeBtn')}
                                 </button>
                             </div>
                         </div>
@@ -297,7 +304,7 @@ export default function RecommendationsPage() {
                                 <div className="grid grid-cols-3 gap-4">
                                     <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 text-center">
                                         <div className="flex items-center justify-center gap-1.5 text-xs text-[#64748B] mb-1">
-                                            <FiUsers size={14} /> Subscribers
+                                            <FiUsers size={14} /> {t('subscribers')}
                                         </div>
                                         <div className="text-xl sm:text-2xl font-bold text-[#0F172A]">
                                             {Number(youtubeData?.subscribers || 0).toLocaleString()}
@@ -305,7 +312,7 @@ export default function RecommendationsPage() {
                                     </div>
                                     <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 text-center">
                                         <div className="flex items-center justify-center gap-1.5 text-xs text-[#64748B] mb-1">
-                                            <FiEye size={14} /> Total Views
+                                            <FiEye size={14} /> {t('totalViews')}
                                         </div>
                                         <div className="text-xl sm:text-2xl font-bold text-[#0F172A]">
                                             {Number(youtubeData?.totalViews || 0).toLocaleString()}
@@ -313,7 +320,7 @@ export default function RecommendationsPage() {
                                     </div>
                                     <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 text-center">
                                         <div className="flex items-center justify-center gap-1.5 text-xs text-[#64748B] mb-1">
-                                            <FiVideo size={14} /> Videos Uploaded
+                                            <FiVideo size={14} /> {t('videosUploaded')}
                                         </div>
                                         <div className="text-xl sm:text-2xl font-bold text-[#0F172A]">
                                             {Number(youtubeData?.videoCount || 0).toLocaleString()}
@@ -323,7 +330,7 @@ export default function RecommendationsPage() {
                             )}
 
                             <div className="space-y-3">
-                                <h2 className="text-sm font-bold uppercase tracking-wider text-[#64748B]">Recent Content</h2>
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-[#64748B]">{t('recentContent')}</h2>
                                 {(youtubeData?.videos && youtubeData.videos.length > 0) ? (
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {youtubeData.videos.slice(0, 3).map((v, i) => (
@@ -343,7 +350,7 @@ export default function RecommendationsPage() {
                                                     {v.title}
                                                 </h3>
                                                 <div className="flex justify-between text-[11px] text-[#64748B]">
-                                                    <span>{Number(v.views || 0).toLocaleString()} views</span>
+                                                    <span>{Number(v.views || 0).toLocaleString()} {t('totalViews').toLowerCase()}</span>
                                                     <span>{v.comments || 0} comments</span>
                                                 </div>
                                             </a>
@@ -351,7 +358,7 @@ export default function RecommendationsPage() {
                                     </div>
                                 ) : (
                                     <div className="p-6 bg-white border border-[#E2E8F0] rounded-2xl text-center text-xs text-[#64748B]">
-                                        No public videos uploaded yet on this channel. As you post videos, CKH will audit them here automatically!
+                                        {t('noVideosYet')}
                                     </div>
                                 )}
                             </div>
@@ -361,10 +368,10 @@ export default function RecommendationsPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2 text-[#5352ED]">
                                             <FiMessageSquare size={16} />
-                                            <h3 className="font-bold text-sm text-[#0F172A]">Recent Audience Comments</h3>
+                                            <h3 className="font-bold text-sm text-[#0F172A]">{t('audienceComments')}</h3>
                                         </div>
                                         <span className="text-[11px] bg-[#EEF2FF] text-[#5352ED] font-bold px-2 py-0.5 rounded-full">
-                                            {youtubeData?.recentComments?.length || 0} found
+                                            {youtubeData?.recentComments?.length || 0} {t('foundCount')}
                                         </span>
                                     </div>
 
@@ -382,7 +389,7 @@ export default function RecommendationsPage() {
                                         </div>
                                     ) : (
                                         <div className="py-4 text-center text-xs text-[#94A3B8]">
-                                            No comments on recent uploads yet. Viewer notes will appear here directly.
+                                            {t('noCommentsYet')}
                                         </div>
                                     )}
                                 </div>
@@ -390,16 +397,16 @@ export default function RecommendationsPage() {
                                 <div className="border border-[#E2E8F0] rounded-2xl p-5 bg-white space-y-4">
                                     <div className="flex items-center gap-2 text-[#5352ED]">
                                         <FiTarget size={16} />
-                                        <h3 className="font-bold text-sm text-[#0F172A]">Audience Demographics & Persona</h3>
+                                        <h3 className="font-bold text-sm text-[#0F172A]">{t('demographicsTitle')}</h3>
                                     </div>
                                     <div className="space-y-2.5">
                                         <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                                            <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">Estimated Age Group</span>
+                                            <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">{t('estimatedAge')}</span>
                                             <span className="text-xs font-bold text-[#0F172A]">{youtubeData?.dominantNiche ? '18 - 24 years (Students / Junior Devs)' : '18 - 28 years (General Creators)'}</span>
                                         </div>
                                         <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                                            <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">Viewer Goal / Intent</span>
-                                            <span className="text-xs font-medium text-[#334155]">Learning practical coding concepts and examining student project builds.</span>
+                                            <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">{t('viewerIntent')}</span>
+                                            <span className="text-xs font-medium text-[#334155]">{t('viewerIntentDesc')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -408,10 +415,10 @@ export default function RecommendationsPage() {
                             <div className="border border-[#E2E8F0] rounded-2xl p-6 bg-white space-y-4">
                                 <div className="flex items-center gap-2 text-[#0F172A]">
                                     <FiUsers className="text-[#5352ED]" size={18} />
-                                    <h3 className="text-sm font-bold">Similar Videos in Your Niche (Inspiration)</h3>
+                                    <h3 className="text-sm font-bold">{t('nicheInspiration')}</h3>
                                 </div>
                                 <p className="text-xs text-[#64748B]">
-                                    Discover ideas and formats from other creators teaching similar topics:
+                                    {t('inspirationSubtitle')}
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-1">
                                     {(youtubeData?.inspirationVideos || []).map((comp, idx) => (
@@ -426,7 +433,7 @@ export default function RecommendationsPage() {
                                                 <img src={comp.thumbnail} alt={comp.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
                                             </div>
                                             <h4 className="font-semibold text-xs text-[#1E293B] line-clamp-2 group-hover:text-[#5352ED] transition-colors">{comp.title}</h4>
-                                            <span className="text-[10px] text-[#64748B] block truncate">By {comp.channelTitle}</span>
+                                            <span className="text-[10px] text-[#64748B] block truncate">{t('byAuthor')} {comp.channelTitle}</span>
                                         </a>
                                     ))}
                                 </div>
@@ -436,20 +443,20 @@ export default function RecommendationsPage() {
                                 <div className="border border-[#E2E8F0] rounded-2xl p-6 bg-white space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <h3 className="text-sm font-bold text-[#0F172A]">Title Optimization Review</h3>
+                                            <h3 className="text-sm font-bold text-[#0F172A]">{t('titleAuditHeader')}</h3>
                                             {youtubeData.titleAudit.detectedFormat && (
                                                 <span className="text-[11px] bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-medium">
-                                                    Detected: {youtubeData.titleAudit.detectedFormat}
+                                                    {t('detectedPrefix')} {youtubeData.titleAudit.detectedFormat}
                                                 </span>
                                             )}
                                         </div>
                                         {youtubeData.titleAudit.needsOptimization ? (
                                             <span className="text-[11px] bg-amber-50 text-amber-700 border border-amber-200 font-bold px-2.5 py-1 rounded-full">
-                                                Showcase Framing Suggested
+                                                {t('showcaseSuggested')}
                                             </span>
                                         ) : (
                                             <span className="text-[11px] bg-green-50 text-green-700 border border-green-200 font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                                                <FiCheck size={12} /> Title Looks Strong
+                                                <FiCheck size={12} /> {t('titleLooksStrong')}
                                             </span>
                                         )}
                                     </div>
@@ -457,7 +464,7 @@ export default function RecommendationsPage() {
                                     {youtubeData.titleAudit.needsOptimization && (
                                         <div className="space-y-3">
                                             <p className="text-xs text-[#64748B]">
-                                                Current title: "{youtubeData.titleAudit.currentTitle}"
+                                                {t('currentTitleLabel')} "{youtubeData.titleAudit.currentTitle}"
                                             </p>
                                             <div className="space-y-2">
                                                 {youtubeData.titleAudit.recommendations.map((title, idx) => (
@@ -467,7 +474,7 @@ export default function RecommendationsPage() {
                                                             onClick={() => navigate('/ideas')}
                                                             className="text-[#5352ED] font-semibold flex items-center gap-1 hover:underline ml-2 shrink-0 cursor-pointer"
                                                         >
-                                                            Use in Ideas <FiArrowRight size={12} />
+                                                            {t('useInIdeas')} <FiArrowRight size={12} />
                                                         </button>
                                                     </div>
                                                 ))}

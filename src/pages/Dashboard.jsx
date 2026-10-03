@@ -5,6 +5,8 @@ import { toggleSaveItem } from '../services/savedService';
 import { useSubscription } from '../hooks/useSubscription';
 import SubscriptionPromptModal from '../components/SubscriptionPromptModal';
 import NotificationCenter from '../components/NotificationCenter';
+import SettingsPopover from "../components/SettingsPopover";
+import { useLanguage } from '../context/LanguageContext';
 import {
   FiGrid, FiStar, FiEdit3, FiCompass, FiUser,
   FiSettings, FiHelpCircle, FiX, FiBookmark, FiMessageSquare, FiMenu, FiRotateCcw
@@ -28,7 +30,7 @@ export default function Dashboard() {
   const { isPremium, loading: subLoading } = useSubscription();
   const [showPromoModal, setShowPromoModal] = useState(false);
 
-  
+  const { t } = useLanguage();
 
   useEffect(() => {
     let isMounted = true;
@@ -283,14 +285,22 @@ export default function Dashboard() {
     return hoursElapsed >= 24;
   };
 
-  const SidebarContent = () => (
+const SidebarContent = ({ onClose }) => {
+  const { t } = useLanguage();
+
+  return (
     <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
       <div>
         <div className="px-2 mb-10 flex justify-between items-center">
-          <img src={logo} alt="Logo" className="h-12 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
+          <img 
+            src={logo} 
+            alt="Logo" 
+            className="h-12 w-auto object-contain cursor-pointer" 
+            onClick={() => navigate('/dashboard')} 
+          />
           <button
             type="button"
-            onClick={() => setIsMobileMenuOpen(false)}
+            onClick={onClose}
             className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
           >
             <FiX size={24} />
@@ -299,51 +309,47 @@ export default function Dashboard() {
 
         <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
           <div className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-bold">
-            <FiGrid size={18} /> Dashboard
+            <FiGrid size={18} /> {t('dashboard')}
           </div>
           <div
             onClick={() => navigate('/recommendations')}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
           >
-            <FiStar size={18} /> Recommendations
+            <FiStar size={18} /> {t('recommendations')}
           </div>
           <div
             onClick={() => navigate('/ideas')}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
           >
-            <FiEdit3 size={18} /> Ideas
+            <FiEdit3 size={18} /> {t('ideas')}
           </div>
           <div
             onClick={() => navigate('/opportunities')}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
           >
-            <FiCompass size={18} /> Opportunities
+            <FiCompass size={18} /> {t('opportunities')}
           </div>
           <div
             onClick={() => navigate('/profile')}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
           >
-            <FiUser size={18} /> Profile
+            <FiUser size={18} /> {t('profile')}
           </div>
         </nav>
       </div>
 
       <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-        <div
-          onClick={() => navigate('/account')}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
-        >
-          <FiSettings size={18} /> Settings
-        </div>
+        <SettingsPopover onCloseParent={onClose} />
         <div
           onClick={() => navigate('/support')}
           className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
         >
-          <FiHelpCircle size={18} /> Support
+          <FiHelpCircle size={18} /> {t('support')}
         </div>
       </div>
     </div>
   );
+};
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A] bg-white font-normal">
@@ -422,48 +428,54 @@ export default function Dashboard() {
             </div>
 
             <h1 className="text-3xl lg:text-[32px] font-bold mb-8 tracking-tight text-[#0F172A]">
-              Welcome back, {displayName}.
+              {t('welcomeBack')}, {displayName}.
             </h1>
 
             <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-6 rounded-2xl mb-4 shadow-2xs">
-              <h2 className="text-[#5352ED] font-bold text-sm mb-1">Your Current Focus</h2>
-              <p className="text-[#64748B] text-xs italic mb-3">{dashboardData?.current_focus?.title || "Tailoring insights..."}</p>
+              <h2 className="text-[#5352ED] font-bold text-sm mb-1">{t('yourCurrentFocus')}</h2>
+              <p className="text-[#64748B] text-xs italic mb-3">
+                {dashboardData?.current_focus?.title || t('tailoringInsights')}
+              </p>
               <p className="text-[#0F172A] text-sm font-medium leading-relaxed">
-                {dashboardData?.current_focus?.description || "Your current focus will update as you review recommendations and ideas."}
+                {dashboardData?.current_focus?.description || t('currentFocusDefaultDesc')}
               </p>
             </div>
 
             {dashboardData?.active_recommendations?.length > 0 ? (
               <div className="bg-[#F5F2FF] border border-[#E2E8F0] p-6 rounded-2xl flex gap-4 items-start shadow-2xs">
-                <div className="bg-[#FFFFFF] text-[#5352ED] p-2 rounded-xl mt-1 shadow-xs"><FiMessageSquare size={18} /></div>
+                <div className="bg-[#FFFFFF] text-[#5352ED] p-2 rounded-xl mt-1 shadow-xs">
+                  <FiMessageSquare size={18} />
+                </div>
                 <div>
-                  <h3 className="font-bold mb-2 text-[#0F172A]">Turn questions into content</h3>
+                  <h3 className="font-bold mb-2 text-[#0F172A]">{t('turnQuestionsTitle')}</h3>
                   <p className="text-[#64748B] text-xs leading-relaxed mb-4">
-                    Your recent post sparked several similar questions from your audience. Responding to them now can strengthen engagement.
+                    {t('turnQuestionsDesc')}
                   </p>
                   <button
                     type="button"
                     onClick={() => navigate('/recommendations')}
                     className="bg-[#5352ED] text-[#FFFFFF] text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-[#4342D9] transition-colors shadow-xs cursor-pointer"
                   >
-                    View Recommendation
+                    {t('viewRecommendation')}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-6 rounded-2xl flex gap-4 items-start shadow-2xs">
-                <div className="bg-[#FFFFFF] text-[#5352ED] p-2 rounded-xl mt-1 shadow-xs"><FiCompass size={18} /></div>
+                <div className="bg-[#FFFFFF] text-[#5352ED] p-2 rounded-xl mt-1 shadow-xs">
+                  <FiCompass size={18} />
+                </div>
                 <div>
-                  <h3 className="font-bold mb-2 text-[#0F172A]">Let's build your first strategy</h3>
+                  <h3 className="font-bold mb-2 text-[#0F172A]">{t('buildFirstStrategyTitle')}</h3>
                   <p className="text-[#64748B] text-xs leading-relaxed mb-4">
-                    Welcome to the Hub! We are currently analyzing your goals. Your first set of tailored content recommendations will appear here soon.
+                    {t('buildFirstStrategyDesc')}
                   </p>
                   <button
                     type="button"
                     onClick={() => navigate('/profile')}
                     className="bg-[#FFFFFF] border border-[#E2E8F0] text-[#0F172A] text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-[#F1F5F9] shadow-xs transition-colors cursor-pointer"
                   >
-                    Explore Your Profile →
+                    {t('exploreYourProfile')}
                   </button>
                 </div>
               </div>
@@ -505,7 +517,7 @@ export default function Dashboard() {
                     onClick={() => navigate('/reflection', { state: { recommendation: dashboardData.recent_reflection } })}
                     className="text-[#5352ED] text-xs font-bold hover:underline transition-all cursor-pointer"
                   >
-                    Share Experience →
+                    Share Experience
                   </button>
                 </div>
               </>
@@ -537,7 +549,7 @@ export default function Dashboard() {
                     })}
                     className="w-full bg-[#5352ED] text-white text-xs font-bold py-2.5 rounded-xl hover:bg-[#4342D9] transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    Start Reflection →
+                    Start Reflection
                   </button>
                 </div>
 
@@ -560,7 +572,7 @@ export default function Dashboard() {
                     })}
                     className="text-[#5352ED] text-xs font-bold hover:underline transition-all cursor-pointer"
                   >
-                    Share Experience →
+                    Share Experience
                   </button>
                 </div>
               </>

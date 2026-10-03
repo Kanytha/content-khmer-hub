@@ -20,6 +20,7 @@ import SavedPage from './pages/SavedPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import ReflectionPage from './pages/ReflectionPage';
 import SupportPage from './pages/SupportPage';
+import { LanguageProvider } from './context/LanguageContext';
 
 function MainLayout() {
   return (
@@ -35,6 +36,7 @@ function MainLayout() {
 
 function App() {
   return (
+    <LanguageProvider>
     <Router>
       <Routes>
         <Route element={<MainLayout />}>
@@ -62,6 +64,7 @@ function App() {
         <Route path="/support" element={<SupportPage />} />
       </Routes>
     </Router>
+    </LanguageProvider>
   );
 }
 

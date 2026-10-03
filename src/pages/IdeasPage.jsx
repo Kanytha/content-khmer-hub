@@ -5,6 +5,9 @@ import { getCreatorContext, evaluateSingleIdea, compareIdeas } from '../services
 import { useSubscription } from '../hooks/useSubscription';
 import AddIdeaModal from '../components/AddIdeaModal';
 import NotificationCenter from '../components/NotificationCenter';
+import { useLanguage } from '../context/LanguageContext';
+import EditContextModal from "../components/EditContextModal";
+import SettingsPopover from "../components/SettingsPopover";
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
   FiGrid, FiStar, FiEdit3, FiCompass, FiUser, 
@@ -21,6 +24,7 @@ export default function IdeasPage() {
   const [evaluations, setEvaluations] = useState({});
   const [comparison, setComparison] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedIdea, setSelectedIdea] = useState(null);
   const [evaluating, setEvaluating] = useState(false);
   const [userId, setUserId] = useState(null);
   const [initials, setInitials] = useState('TE');
@@ -28,6 +32,9 @@ export default function IdeasPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { isPremium } = useSubscription();
+
+  const { t, language } = useLanguage();
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -120,19 +127,87 @@ export default function IdeasPage() {
     loadData();
   }, []);
 
-  const handleSaveIdea = async (newIdeaData) => {
-    const { data, error } = await supabase
-      .from('content_ideas')
-      .insert({ ...newIdeaData, user_id: userId })
-      .select()
-      .single();
+  const handleSaveIdea = async (ideaData) => {
+    if (ideaData.id) {
+      const { data, error } = await supabase
+        .from('content_ideas')
+        .update({
+          title: ideaData.title,
+          description: ideaData.description,
+          intended_format: ideaData.intended_format,
+          concern: ideaData.concern
+        })
+        .eq('id', ideaData.id)
+        .select()
+        .single();
 
-    if (!error && data) {
-      setIdeas(prev => [...prev, data]);
-      setComparison(null);
-      localStorage.removeItem(`ckh_comparison_${userId}`);
-      await supabase.from('idea_comparisons').delete().eq('user_id', userId);
+      if (error) {
+        console.error("Error updating idea in Supabase:", error);
+        alert("Failed to update idea. Check console for details.");
+        return;
+      }
+
+      if (data) {
+        setIdeas(prev => prev.map(item => (item.id === data.id ? data : item)));
+        
+        setEvaluations(prev => {
+          const next = { ...prev };
+          delete next[data.id];
+          return next;
+        });
+      }
+    } 
+
+    else {
+      const { data, error } = await supabase
+        .from('content_ideas')
+        .insert({
+          title: ideaData.title,
+          description: ideaData.description,
+          intended_format: ideaData.intended_format,
+          concern: ideaData.concern,
+          user_id: userId
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error inserting idea into Supabase:", error);
+        alert("Failed to create idea. Check console for details.");
+        return;
+      }
+
+      if (data) {
+        setIdeas(prev => [...prev, data]);
+      }
     }
+  };
+
+  const handleSaveContext = async ({ goal, focus, contextPeriod }) => {
+    setContext(prev => ({
+      ...prev,
+      creator: {
+        ...prev?.creator,
+        goals: goal,
+        topic: focus
+      },
+      currentContext: {
+        ...prev?.currentContext,
+        contextPeriod: contextPeriod
+      }
+    }));
+
+    await supabase
+      .from('creator_profiles')
+      .update({
+        topic: focus,
+        goals: goal,
+        context_period: contextPeriod
+      })
+      .eq('user_id', userId);
+
+    setEvaluations({});
+    localStorage.removeItem(`ckh_comparison_${userId}`);
   };
 
   const handleDeleteIdea = async (id) => {
@@ -161,8 +236,15 @@ export default function IdeasPage() {
 
       for (const idea of ideas) {
         if (!updatedEvals[idea.id]) {
-          const evalRes = await evaluateSingleIdea(idea, context);
+          const evalRes = await evaluateSingleIdea(idea, context, language);
           updatedEvals[idea.id] = evalRes;
+        }
+
+        if (updatedEvals[idea.id]) {
+          updatedEvals[idea.id] = {
+            ...updatedEvals[idea.id],
+            format_suggested: idea.intended_format || updatedEvals[idea.id].format_suggested
+          };
         }
       }
       setEvaluations(updatedEvals);
@@ -172,7 +254,7 @@ export default function IdeasPage() {
         eval: updatedEvals[idea.id]
       }));
 
-      const compRes = await compareIdeas(preparedList, context);
+      const compRes = await compareIdeas(preparedList, context, language);
       
       if (compRes) {
         setComparison(compRes);
@@ -221,44 +303,39 @@ export default function IdeasPage() {
             onClick={() => { onClose?.(); navigate('/dashboard'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
-            <FiGrid size={18} /> Dashboard
+            <FiGrid size={18} /> {t('dashboard')}
           </div>
           <div 
             onClick={() => { onClose?.(); navigate('/recommendations'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
-            <FiStar size={18} /> Recommendations
+            <FiStar size={18} /> {t('recommendations')}
           </div>
           <div className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-semibold">
-            <FiEdit3 size={18} /> Ideas
+            <FiEdit3 size={18} /> {t('ideas')}
           </div>
           <div 
             onClick={() => { onClose?.(); navigate('/opportunities'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
-            <FiCompass size={18} /> Opportunities
+            <FiCompass size={18} /> {t('opportunities')}
           </div>
           <div 
             onClick={() => { onClose?.(); navigate('/profile'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
-            <FiUser size={18} /> Profile
+            <FiUser size={18} /> {t('profile')}
           </div>
         </nav>
       </div>
 
       <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-        <div 
-          onClick={() => { onClose?.(); navigate('/account'); }}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
-        >
-          <FiSettings size={18} /> Settings
-        </div>
+        <SettingsPopover onCloseParent={onClose} />
         <div
           onClick={() => navigate('/support')}
           className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
         >
-          <FiHelpCircle size={18} /> Support
+          <FiHelpCircle size={18} /> {t('support')}
         </div>
       </div>
     </div>
@@ -291,6 +368,43 @@ export default function IdeasPage() {
     const badgeB = evaluations[b.id]?.alignment_badge;
     return getRank(badgeA) - getRank(badgeB);
   });
+
+  const translateBadge = (badge) => {
+    if (badge === 'Strong Alignment') return t('strongAlignment');
+    if (badge === 'Good Alignment') return t('goodAlignment');
+    if (badge === 'Possible Alignment') return t('possibleAlignment');
+    return badge;
+  };
+
+  const translateMetric = (metric) => {
+  if (!metric) return '';
+
+  const metricMap = {
+    // Quality ratings
+    'Strong': t('metricStrong'),
+    'Very High': t('metricVeryHigh'),
+    'Good': t('metricGood'),
+    'Moderate': t('metricModerate'),
+    'Low': t('metricLow'),
+    'Limited': t('metricLimited'),
+
+    // Format options
+    'Short video': t('formatShortVideo'),
+    'Short Video': t('formatShortVideo'),
+    'Long video': t('formatLongVideo'),
+    'Long Video': t('formatLongVideo'),
+    'Photo post': t('formatPhotoPost'),
+    'Photo Post': t('formatPhotoPost'),
+    'Carousel': t('formatCarousel'),
+    'Text post': t('formatTextPost'),
+    'Text Post': t('formatTextPost'),
+    'Live stream': t('formatLiveStream'),
+    'Live Stream': t('formatLiveStream'),
+    'Not sure yet': t('formatNotSure')
+  };
+
+  return metricMap[metric] || metric;
+};
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A]">
@@ -360,65 +474,76 @@ export default function IdeasPage() {
 
           <div>
             <h1 className="text-3xl font-semibold tracking-tight mb-2 text-[#0F172A]">
-              Have something in mind?
+              {t('ideasPageTitle')}
             </h1>
             <p className="text-[#64748B] text-xs leading-relaxed max-w-2xl font-normal">
-              Share what you're thinking about creating. We've compared your ideas based on your goals and audience to help you see which one may be worth prioritizing. The final choice is yours.
+              {t('ideasPageSubtitle')}
             </p>
           </div>
 
           <div className="bg-[#EEF2FF] border border-[#E0E7FE] rounded-2xl p-4 sm:px-6 sm:py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-normal">
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[#64748B]">
               <div>
-                GOAL: <span className="text-[#0F172A] font-medium">{context?.creator?.goals || 'Reach More People'}</span>
+                {t('goalLabel')} <span className="text-[#0F172A] font-medium">{context?.creator?.goals || 'Reach More People'}</span>
               </div>
               <span className="hidden sm:inline text-gray-300">|</span>
               <div>
-                FOCUS: <span className="text-[#0F172A] font-medium">{context?.creator?.topic || 'Education'}</span>
+                {t('focusLabel')} <span className="text-[#0F172A] font-medium">{context?.creator?.topic || 'Education'}</span>
               </div>
               <span className="hidden sm:inline text-gray-300">|</span>
               <div>
-                CONTEXT: <span className="text-[#0F172A] font-medium">{context?.currentContext?.contextPeriod || 'Current semester / Active exam cycle'}</span>
+                {t('contextLabel')} <span className="text-[#0F172A] font-medium">{context?.currentContext?.contextPeriod || 'Current semester / Active exam cycle'}</span>
               </div>
             </div>
-            <button 
-              onClick={() => navigate('/edit-profile')}
-              className="text-[#5352ED] hover:underline self-start md:self-auto font-medium"
+            <button
+              onClick={() => setIsContextModalOpen(true)}
+              className="text-[#5352ED] hover:underline self-start md:self-auto font-medium cursor-pointer"
             >
-              Edit Context
+              {t('editContext')}
             </button>
           </div>
 
           <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-6 rounded-[24px] space-y-4">
             <div>
-              <h3 className="text-sm font-semibold text-[#0F172A]">Your ideas</h3>
-              <p className="text-xs text-[#64748B] mt-0.5 font-normal">Add the ideas you're deciding between.</p>
+              <h3 className="text-sm font-semibold text-[#0F172A]">{t('yourIdeasTitle')}</h3>
+              <p className="text-xs text-[#64748B] mt-0.5 font-normal">{t('yourIdeasSubtitle')}</p>
             </div>
 
             {ideas.length === 0 ? (
               <div className="border border-dashed border-[#CBD5E1] rounded-xl p-8 sm:p-12 text-center space-y-3 bg-[#FFFFFF]">
-                <p className="text-xs text-[#94A3B8] font-normal">No ideas added yet. Start by adding your first content thought!</p>
+                <p className="text-xs text-[#94A3B8] font-normal">{t('noIdeasAdded')}</p>
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="inline-flex items-center gap-1.5 text-xs text-[#5352ED] bg-[#EEF2FF] px-4 py-2 rounded-lg hover:bg-[#E0E7FE] transition-colors font-semibold"
                 >
-                  <FiPlus size={14} /> Add your first idea
+                  <FiPlus size={14} /> {t('addFirstIdea')}
                 </button>
               </div>
             ) : (
               <div className="space-y-2">
                 {ideas.map((idea) => (
-                  <div 
-                    key={idea.id} 
+                  <div
+                    key={idea.id}
                     className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl px-4 py-3.5 flex items-center justify-between text-xs font-normal text-[#0F172A] hover:border-gray-300 transition-colors gap-3"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      onClick={() => {
+                        setSelectedIdea(idea);
+                        setIsModalOpen(true);
+                      }}
+                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer hover:text-[#5352ED] transition-colors"
+                    >
                       <MdDragIndicator className="text-[#CBD5E1] shrink-0" size={18} />
                       <span className="truncate">{idea.title}</span>
                     </div>
-                    <button 
-                      onClick={() => handleDeleteIdea(idea.id)} 
-                      className="text-[#94A3B8] hover:text-red-500 p-1 shrink-0 transition-colors"
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteIdea(idea.id);
+                      }}
+                      className="text-[#94A3B8] hover:text-red-500 p-1 shrink-0 transition-colors cursor-pointer"
                     >
                       <FiX size={16} />
                     </button>
@@ -428,11 +553,15 @@ export default function IdeasPage() {
             )}
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-2 gap-3">
-              <button 
-                onClick={() => setIsModalOpen(true)}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIdea(null);
+                  setIsModalOpen(true);
+                }}
                 className="text-xs text-[#5352ED] flex items-center justify-center sm:justify-start gap-1 hover:underline py-2 font-semibold"
               >
-                <FiPlus size={14} /> Add another idea
+                <FiPlus size={14} /> {t('addAnotherIdea')}
               </button>
 
               <button
@@ -440,7 +569,7 @@ export default function IdeasPage() {
                 disabled={evaluating || ideas.length === 0}
                 className="bg-[#5352ED] text-[#FFFFFF] text-xs px-7 py-2.5 rounded-xl hover:bg-[#4342D9] transition-colors disabled:opacity-50 font-semibold shadow-xs"
               >
-                {evaluating ? 'Evaluating with CKH...' : 'Compare Ideas'}
+                {evaluating ? t('evaluatingWithCKH') : t('compareIdeasBtn')}
               </button>
             </div>
           </div>
@@ -448,11 +577,17 @@ export default function IdeasPage() {
           {Object.keys(evaluations).length > 0 && (
             <div className="pt-6 space-y-6 font-normal">
               <div className="text-center">
-                <span className="text-[11px] text-[#94A3B8] tracking-wider uppercase font-semibold">What CKH Considered</span>
+                <span className="text-[11px] text-[#94A3B8] tracking-wider uppercase font-semibold">{t('whatCKHConsidered')}</span>
                 <div className="flex flex-wrap justify-center gap-2 mt-2">
-                  {['Creator Identity', 'Audience', 'Goals', 'Recent Content', 'Context'].map(t => (
-                    <span key={t} className="bg-[#FFFFFF] border border-[#E2E8F0] text-[#64748B] rounded-full px-3 py-1 text-[11px] font-medium">
-                      {t}
+                  {[
+                    { key: 'creatorIdentity', fallback: 'Creator Identity' },
+                    { key: 'audienceTag', fallback: 'Audience' },
+                    { key: 'goalsTag', fallback: 'Goals' },
+                    { key: 'recentContentTag', fallback: 'Recent Content' },
+                    { key: 'contextTag', fallback: 'Context' }
+                  ].map(item => (
+                    <span key={item.key} className="bg-[#FFFFFF] border border-[#E2E8F0] text-[#64748B] rounded-full px-3 py-1 text-[11px] font-medium">
+                      {t(item.key) || item.fallback}
                     </span>
                   ))}
                 </div>
@@ -472,7 +607,7 @@ export default function IdeasPage() {
                     >
                       <div className="p-6 space-y-4">
                         <span className={`inline-block px-3 py-1 rounded-lg text-[11px] font-semibold ${bg} ${text}`}>
-                          {ev.alignment_badge}
+                          {translateBadge(ev.alignment_badge)}
                         </span>
 
                         <h3 className="text-lg text-[#1E293B] leading-snug font-semibold">
@@ -481,37 +616,39 @@ export default function IdeasPage() {
 
                         <div className="text-xs divide-y divide-gray-100 font-normal">
                           <div className="flex justify-between py-2 border-b border-gray-100">
-                            <span className="text-[#64748B]">Goal Alignment</span>
+                            <span className="text-[#64748B]">{t('goalAlignmentLabel')}</span>
                             <span className={`font-semibold ${getMetricTextColor(ev.goal_alignment)}`}>
-                              {ev.goal_alignment}
+                              {translateMetric(ev.goal_alignment)}
                             </span>
                           </div>
                           <div className="flex justify-between py-2 border-b border-gray-100">
-                            <span className="text-[#64748B]">Audience Fit</span>
+                            <span className="text-[#64748B]">{t('audienceFitLabel')}</span>
                             <span className={`font-semibold ${getMetricTextColor(ev.audience_fit)}`}>
-                              {ev.audience_fit}
+                              {translateMetric(ev.audience_fit)}
                             </span>
                           </div>
                           <div className="flex justify-between py-2 border-b border-gray-100">
-                            <span className="text-[#64748B]">Current Direction</span>
+                            <span className="text-[#64748B]">{t('currentDirectionLabel')}</span>
                             <span className={`font-semibold ${getMetricTextColor(ev.current_direction)}`}>
-                              {ev.current_direction}
+                              {translateMetric(ev.current_direction)}
                             </span>
                           </div>
                         </div>
 
                         <div className="space-y-2.5 pt-1 text-xs font-normal">
                           <div>
-                            <span className="text-[#94A3B8] block mb-0.5 font-medium">Recent Experience</span>
+                            <span className="text-[#94A3B8] block mb-0.5 font-medium">{t('recentExperienceLabel')}</span>
                             <p className="text-[#475569] leading-relaxed">{ev.recent_experience}</p>
                           </div>
                           <div>
-                            <span className="text-[#94A3B8] block mb-0.5 font-medium">Timing / Context</span>
+                            <span className="text-[#94A3B8] block mb-0.5 font-medium">{t('timingContextLabel')}</span>
                             <p className="text-[#475569] leading-relaxed">{ev.timing_context}</p>
                           </div>
                           <div className="flex justify-between items-center pt-1">
-                            <span className="text-[#94A3B8] font-medium">Format</span>
-                            <span className="text-[#334155] font-semibold">{ev.format_suggested}</span>
+                            <span className="text-[#94A3B8] font-medium">{t('formatLabel')}</span>
+                            <span className="text-[#334155] font-semibold">
+                              {translateMetric(ev.intended_format || ev.format_suggested || ev.format)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -519,7 +656,7 @@ export default function IdeasPage() {
                       <div className="bg-[#F8F9FE] border-t border-[#EEF0FE] p-5 text-xs font-normal space-y-4">
                         <div>
                           <span className="text-[10px] uppercase tracking-wider text-[#94A3B8] block mb-1 font-semibold">
-                            One thing to consider
+                            {t('oneThingToConsider')}
                           </span>
                           <p className="text-[#475569] leading-relaxed font-normal">
                             {ev.one_thing_to_consider}
@@ -531,7 +668,7 @@ export default function IdeasPage() {
                           onClick={() => handleSelectIdea(idea)}
                           className="w-full py-2.5 rounded-xl text-xs font-semibold bg-white border border-[#D1D5DB] text-[#1E293B] hover:bg-gray-50 hover:border-gray-400 transition-colors shadow-2xs"
                         >
-                          Choose This Idea
+                          {t('chooseThisIdea')}
                         </button>
                       </div>
                     </div>
@@ -543,7 +680,7 @@ export default function IdeasPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
                   <div className="bg-[#F4F2FF] border border-[#EBE7FA] p-7 rounded-2xl flex flex-col justify-start space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold text-[#463FAF] tracking-wide uppercase">
-                      <LuCalendar size={16} /> RELEVANT RIGHT NOW
+                      <LuCalendar size={16} /> {t('relevantRightNow')}
                     </div>
                     <p className="text-sm text-[#33384A] leading-relaxed font-normal">
                       {comparison.relevant_context_note}
@@ -555,11 +692,11 @@ export default function IdeasPage() {
 
                     <div className="relative z-10 space-y-3">
                       <h3 className="text-xl font-semibold text-[#1E293B]">
-                        What Stands Out
+                        {t('whatStandsOut')}
                       </h3>
                       
                       <div className="text-base text-[#1E293B] leading-snug">
-                        <strong className="font-semibold">{comparison.standout_title}</strong> is the strongest fit right now.
+                        <strong className="font-semibold">{comparison.standout_title}</strong> {t('strongestFitSuffix')}
                       </div>
 
                       <p className="text-sm text-[#475569] leading-relaxed font-normal pt-1">
@@ -572,7 +709,7 @@ export default function IdeasPage() {
 
               <div className="bg-[#F6F5FD] border border-[#EBE8F8] rounded-2xl py-5 px-6 text-center space-y-3 font-normal">
                 <h2 className="text-base font-semibold text-[#1E293B] tracking-tight">
-                  Want to explore other angles?
+                  {t('wantToExploreAngles')}
                 </h2>
                 
                 <div className="flex justify-center">
@@ -580,7 +717,7 @@ export default function IdeasPage() {
                     onClick={handleCompareIdeas}
                     className="bg-white border border-[#D1D5DB] text-[#1E293B] px-6 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors shadow-2xs"
                   >
-                    Compare Again
+                    {t('compareAgainBtn')}
                   </button>
                 </div>
               </div>
@@ -589,10 +726,21 @@ export default function IdeasPage() {
         </div>
       </div>
 
-      <AddIdeaModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleSaveIdea} 
+      <AddIdeaModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedIdea(null);
+        }}
+        onSave={handleSaveIdea}
+        initialData={selectedIdea}
+      />
+
+      <EditContextModal
+        isOpen={isContextModalOpen}
+        onClose={() => setIsContextModalOpen(false)}
+        context={context}
+        onSave={handleSaveContext}
       />
     </div>
   );

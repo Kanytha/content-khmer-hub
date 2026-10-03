@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
+import { useLanguage } from '../context/LanguageContext';
 import { useSubscription } from '../hooks/useSubscription';
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
@@ -35,6 +36,9 @@ export default function AccountSettingsPage() {
   const [passwordMsg, setPasswordMsg] = useState('');
 
   const { isPremium } = useSubscription();
+
+  const { lang, setLang, t } = useLanguage();
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadAccountData() {
@@ -561,7 +565,7 @@ export default function AccountSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 space-y-4 shadow-2xs">
                 <h3 className="text-base font-medium text-[#0F172A]">
-                  Account Preferences
+                  {t('accountPreferences')}
                 </h3>
                 <div className="flex items-center justify-between pt-2">
                   <div className="flex items-center gap-3">
@@ -569,14 +573,79 @@ export default function AccountSettingsPage() {
                       <FiGlobe size={18} />
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase tracking-wider text-[#94A3B8] block">LANGUAGE</span>
-                      <p className="text-xs font-medium text-[#1E293B]">English</p>
+                      <span className="text-[10px] uppercase tracking-wider text-[#94A3B8] block">
+                        {t('language')}
+                      </span>
+                      <p className="text-xs font-medium text-[#1E293B]">
+                        {lang === 'km' ? 'ភាសាខ្មែរ (Khmer)' : 'English (US)'}
+                      </p>
                     </div>
                   </div>
-                  <button type="button" className="text-xs text-[#5352ED] hover:underline font-normal cursor-pointer">
-                    Change
+                  <button
+                    type="button"
+                    onClick={() => setIsLanguageModalOpen(true)}
+                    className="text-xs text-[#5352ED] hover:underline font-normal cursor-pointer"
+                  >
+                    {t('change')}
                   </button>
                 </div>
+                {/* Responsive Language Selection Modal */}
+                {isLanguageModalOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+                    <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-xs sm:max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl">
+                      <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
+                        <h3 className="font-bold text-sm text-[#0F172A]">{t('selectLanguage')}</h3>
+                        <button
+                          type="button"
+                          onClick={() => setIsLanguageModalOpen(false)}
+                          className="text-[#94A3B8] hover:text-[#0F172A] text-sm cursor-pointer p-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLang('en');
+                            setIsLanguageModalOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm transition-all cursor-pointer ${lang === 'en'
+                              ? 'border-[#5352ED] bg-[#EEF2FF] text-[#5352ED] font-bold'
+                              : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:bg-[#F8FAFC]'
+                            }`}
+                        >
+                          <span>English (US)</span>
+                          {lang === 'en' && <span>✓</span>}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLang('km');
+                            setIsLanguageModalOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm transition-all cursor-pointer ${lang === 'km'
+                              ? 'border-[#5352ED] bg-[#EEF2FF] text-[#5352ED] font-bold'
+                              : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:bg-[#F8FAFC]'
+                            }`}
+                        >
+                          <span>ភាសាខ្មែរ (Khmer)</span>
+                          {lang === 'km' && <span>✓</span>}
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsLanguageModalOpen(false)}
+                        className="w-full py-2.5 rounded-xl border border-[#E2E8F0] text-xs font-medium text-[#64748B] hover:bg-[#F8FAFC] cursor-pointer"
+                      >
+                        {t('close')}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 space-y-4 shadow-2xs">

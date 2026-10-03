@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiX, FiCheckCircle } from 'react-icons/fi';
 
 const FORMAT_OPTIONS = [
@@ -11,12 +11,27 @@ const FORMAT_OPTIONS = [
   { id: 'Not sure yet', label: 'Not sure yet' }
 ];
 
-export default function AddIdeaModal({ isOpen, onClose, onSave }) {
+export default function AddIdeaModal({ isOpen, onClose, onSave, initialData = null }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [format, setFormat] = useState('Short video');
   const [concern, setConcern] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // When initialData changes (or modal opens), populate the form
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setDescription(initialData.description || '');
+      setFormat(initialData.intended_format || initialData.format || 'Short video');
+      setConcern(initialData.concern || '');
+    } else {
+      setTitle('');
+      setDescription('');
+      setFormat('Short video');
+      setConcern('');
+    }
+  }, [initialData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -24,12 +39,21 @@ export default function AddIdeaModal({ isOpen, onClose, onSave }) {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
     setSubmitting(true);
-    await onSave({ title, description, intended_format: format, concern });
-    setSubmitting(false);
-    setTitle('');
-    setDescription('');
-    setConcern('');
-    onClose();
+
+    try {
+      await onSave({
+        ...(initialData?.id ? { id: initialData.id } : {}),
+        title,
+        description,
+        intended_format: format,
+        concern
+      });
+      onClose();
+    } catch (err) {
+      console.error("Failed to save idea:", err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -45,7 +69,9 @@ export default function AddIdeaModal({ isOpen, onClose, onSave }) {
         {/* Form Left */}
         <div className="flex-1 space-y-6">
           <div>
-            <h2 className="text-3xl font-extrabold text-[#0F172A]">Your idea</h2>
+            <h2 className="text-3xl font-extrabold text-[#0F172A]">
+              {initialData ? 'Edit your idea' : 'Your idea'}
+            </h2>
             <p className="text-xs text-gray-500 mt-1">
               Tell CKH what you're thinking of posting. A little context helps CKH give you a more useful perspective.
             </p>
@@ -87,10 +113,11 @@ export default function AddIdeaModal({ isOpen, onClose, onSave }) {
                     type="button"
                     key={f.id}
                     onClick={() => setFormat(f.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${format === f.id
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      format === f.id
                         ? 'bg-[#5352ED] text-white'
                         : 'bg-[#F1F5F9] text-gray-600 hover:bg-gray-200'
-                      }`}
+                    }`}
                   >
                     {f.label}
                   </button>
@@ -118,7 +145,7 @@ export default function AddIdeaModal({ isOpen, onClose, onSave }) {
                 disabled={submitting}
                 className="bg-[#5352ED] text-white font-bold px-8 py-2.5 rounded-xl hover:bg-[#4341E2] transition-colors"
               >
-                {submitting ? 'Saving...' : 'Save'}
+                {submitting ? 'Saving...' : initialData ? 'Update Idea' : 'Save'}
               </button>
             </div>
           </form>

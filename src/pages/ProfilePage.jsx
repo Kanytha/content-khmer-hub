@@ -5,6 +5,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { cancelSubscription, resumeSubscription, disconnectYouTubeChannel } from '../services/subscriptionService';
 import UpgradeModal from '../components/UpgradeModal';
 import logo from '../assets/images/LOGO1-removebg-preview.png';
+import SettingsPopover from "../components/SettingsPopover";
 import {
     FiGrid, FiStar, FiEdit3, FiCompass, FiUser,
     FiSettings, FiHelpCircle, FiX, FiMenu,
@@ -332,12 +333,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-1 text-sm font-normal text-[#64748B]">
-                <div
-                    onClick={() => { onClose?.(); navigate('/edit-profile'); }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
-                >
-                    <FiSettings size={18} /> Settings
-                </div>
+                <SettingsPopover onCloseParent={onClose} />
                 <div
                     onClick={() => navigate('/support')}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
