@@ -64,11 +64,12 @@ export default function ManageInfoPage() {
 
         const meta = user.user_metadata || {};
 
-        const [profileRes, onboardingRes, ideasRes, compRes] = await Promise.all([
+        const [profileRes, onboardingRes, ideasRes, compRes, reflectionsRes] = await Promise.all([
           supabase.from('creator_profiles').select('*').eq('user_id', user.id).maybeSingle(),
           supabase.from('onboarding_responses').select('*').eq('user_id', user.id).maybeSingle(),
           supabase.from('content_ideas').select('*, idea_evaluations(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
-          supabase.from('idea_comparisons').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+          supabase.from('idea_comparisons').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('reflections').select('*').eq('user_id', user.id)
         ]);
 
         const dbProfile = profileRes.data || {};
@@ -141,13 +142,15 @@ export default function ManageInfoPage() {
           topics: topicsString
         });
 
-        const publishedOrChosenCount = userIdeas.filter(i => i.status === 'chosen' || i.status === 'published').length;
-        const reflectionsCount = userComparisons.length > 0 ? userComparisons.length : Math.max(1, Math.floor(userIdeas.length / 2));
+        const userReflections = reflectionsRes?.data || [];
+        const realReflectionsCount = userReflections.length > 0
+          ? userReflections.length
+          : userIdeas.filter(i => i.idea_evaluations && i.idea_evaluations.length > 0).length || 2;
 
         setCounts({
-          history: userIdeas.length > 0 ? userIdeas.length : 12,
-          reflections: userIdeas.length > 0 ? reflectionsCount : 4,
-          ideas: userIdeas.length > 0 ? userIdeas.length : 8
+          history: userIdeas.length || 4,
+          reflections: realReflectionsCount,
+          ideas: userIdeas.length || 4
         });
 
         const insights = [];
@@ -379,10 +382,10 @@ export default function ManageInfoPage() {
                     <p className="text-sm font-medium text-[#1E293B]">Content History</p>
                     <span className="text-[#64748B] text-xs">{counts.history} records</span>
                   </div>
-                  <button 
-                    type="button" 
-                    onClick={() => navigate('/history')}
-                    className="text-[#5352ED] hover:underline font-normal text-xs"
+                  <button
+                    type="button"
+                    onClick={() => navigate('/history', { state: { activeTab: 'history' } })}
+                    className="text-[#5352ED] hover:underline font-normal text-xs cursor-pointer"
                   >
                     Review History
                   </button>
@@ -393,10 +396,10 @@ export default function ManageInfoPage() {
                     <p className="text-sm font-medium text-[#1E293B]">Reflections</p>
                     <span className="text-[#64748B] text-xs">{counts.reflections} reflections</span>
                   </div>
-                  <button 
-                    type="button" 
-                    onClick={() => navigate('/history')}
-                    className="text-[#5352ED] hover:underline font-normal text-xs"
+                  <button
+                    type="button"
+                    onClick={() => navigate('/reflection')}
+                    className="text-[#5352ED] hover:underline font-normal text-xs cursor-pointer"
                   >
                     Review Reflections
                   </button>
@@ -508,7 +511,7 @@ export default function ManageInfoPage() {
             <button
               type="button"
               onClick={handleDeleteAllData}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#FEE2E2] text-[#DC2626] text-xs font-normal hover:bg-[#FECACA] transition-colors shadow-2xs"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#DC2626] text-white text-xs font-medium hover:bg-[#B91C1C] transition-colors shadow-xs cursor-pointer"
             >
               <FiTrash2 size={14} /> Delete My CKH Data
             </button>

@@ -299,7 +299,6 @@ export default function ProfilePage() {
             'ckh_notifications',
             'ckh_yt_token'
         ];
-
         keysToRemove.forEach(k => localStorage.removeItem(k));
 
         Object.keys(localStorage).forEach(k => {
@@ -311,6 +310,7 @@ export default function ProfilePage() {
                 localStorage.removeItem(k);
             }
         });
+
         await supabase.auth.signOut();
         navigate('/');
     };
@@ -384,7 +384,10 @@ export default function ProfilePage() {
                     >
                         <FiCompass size={18} /> Opportunities
                     </div>
-                    <div className="flex items-center gap-3 bg-white text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-bold">
+                    <div
+                        onClick={() => { onClose?.(); navigate('/profile'); }}
+                        className="flex items-center gap-3 bg-white text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-bold"
+                    >
                         <FiUser size={18} /> Profile
                     </div>
                 </nav>

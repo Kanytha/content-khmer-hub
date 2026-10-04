@@ -39,10 +39,9 @@ useEffect(() => {
 
     const fetchDeepDetails = async () => {
       try {
-        const cacheKey = `ckh_rec_details_${basicRec.title.replace(/\s+/g, '_').toLowerCase()}`;
+        const cacheKey = `ckh_rec_details_v2_${basicRec.title.replace(/\s+/g, '_').toLowerCase()}`;
         const cachedData = localStorage.getItem(cacheKey);
 
-        // 1. Instant cache load if opened previously
         if (cachedData) {
           try {
             const parsed = JSON.parse(cachedData);
@@ -50,26 +49,38 @@ useEffect(() => {
             setLoading(false);
             return;
           } catch (e) {
-            console.warn("Cache parse error, refetching fresh details:", e);
+            console.warn("Cache parse error, generating fresh details:", e);
           }
         }
 
-        // 2. Fetch fresh only if not cached
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         let selections = {};
 
         if (user) {
           setCurrentUser(user);
+
           const { data } = await supabase
             .from('creator_profiles')
-            .select('onboarding_answers, active_in_progress_recommendation')
+            .select('focus, topic, content_topics, goals, goal, challenges, challenge, platform, onboarding_answers, active_in_progress_recommendation')
             .eq('user_id', user.id)
             .maybeSingle();
 
-          if (data?.onboarding_answers) {
-            selections = data.onboarding_answers;
-          }
+          const { data: userIdeas } = await supabase
+            .from('content_ideas')
+            .select('title, format, topic')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          selections = {
+            topic: data?.focus || data?.topic || data?.onboarding_answers?.topic || "General Content",
+            contentTags: data?.content_topics || data?.onboarding_answers?.content_topics || [],
+            primaryGoals: data?.goals || [data?.goal || data?.onboarding_answers?.primaryGoals?.[0] || "Growth"],
+            biggestChallenge: data?.challenges || [data?.challenge || data?.onboarding_answers?.biggestChallenge?.[0] || "Consistency"],
+            platform: data?.platform || data?.onboarding_answers?.platform || "YouTube",
+            recentIdeaPatterns: userIdeas?.map(i => `${i.title} (${i.format || 'Video'})`) || []
+          };
 
           if (data?.active_in_progress_recommendation?.title === basicRec.title) {
             setIsPlanningSaved(true);
@@ -79,8 +90,10 @@ useEffect(() => {
         const fullData = await generateDetailedRecommendation(basicRec, selections);
         setDetails(fullData);
 
-        // 3. Store in cache so it never makes you wait again
-        localStorage.setItem(cacheKey, JSON.stringify(fullData));
+        if (fullData) {
+          localStorage.setItem(cacheKey, JSON.stringify(fullData));
+        }
+
       } catch (err) {
         console.error("Failed to load recommendation details:", err);
       } finally {
@@ -90,6 +103,18 @@ useEffect(() => {
 
     fetchDeepDetails();
   }, [basicRec, navigate]);
+
+  const handleCompareWithIdea = () => {
+    navigate('/ideas', {
+      state: {
+        prefilledIdeaA: {
+          title: basicRec?.title || details?.title,
+          description: basicRec?.reason || details?.summary || '',
+          source: 'CKH Recommendation'
+        }
+      }
+    });
+  };
 
   const handleStartPlanning = async () => {
     // 1. Pick the recommendation data from details or basicRec
@@ -188,12 +213,14 @@ useEffect(() => {
     <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 text-[#0F172A] font-sans">
       <div className="max-w-[95%] mx-auto">
         {/* Back Link */}
-        <button 
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-sm text-[#64748B] hover:text-[#0F172A] font-medium mb-6 transition-colors cursor-pointer"
-        >
-          <FiArrowLeft size={16} /> Back to Recommendations
-        </button>
+        <div className="sticky top-0 z-20 bg-[#F8FAFC]/90 backdrop-blur-md py-4 mb-4">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-sm text-[#64748B] hover:text-[#0F172A] font-medium transition-colors cursor-pointer"
+          >
+            <FiArrowLeft size={16} /> Back to Recommendations
+          </button>
+        </div>
 
         {/* Header Badges & Title */}
         <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -282,14 +309,14 @@ useEffect(() => {
 
             {/* Personalized Approach */}
             <div className="bg-[#F5F3FF] rounded-2xl p-6 border border-[#E9E5FF] space-y-4">
-              <h2 className="text-lg font-bold">How Would You Like to Approach It?</h2>
+              <h2 className="text-lg font-bold text-[#0F172A]">How Would You Like to Approach It?</h2>
 
               <div className="flex flex-wrap gap-2">
                 <button 
                   type="button"
                   onClick={() => setApproachTab('suggested')}
                   className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                    approachTab === 'suggested' ? 'bg-[#5352ED] text-white shadow-xs' : 'bg-white text-[#475569] border border-[#E2E8F0]'
+                    approachTab === 'suggested' ? 'bg-[#5352ED] text-white shadow-xs' : 'bg-white text-[#475569] border border-[#E2E8F0] hover:bg-[#F8FAFC]'
                   }`}
                 >
                   Try as Suggested
@@ -298,30 +325,48 @@ useEffect(() => {
                   type="button"
                   onClick={() => setApproachTab('adapt')}
                   className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                    approachTab === 'adapt' ? 'bg-[#5352ED] text-white shadow-xs' : 'bg-white text-[#475569] border border-[#E2E8F0]'
+                    approachTab === 'adapt' ? 'bg-[#5352ED] text-white shadow-xs' : 'bg-white text-[#475569] border border-[#E2E8F0] hover:bg-[#F8FAFC]'
                   }`}
                 >
                   Adapt to My Style
                 </button>
-                <button 
+                <button
                   type="button"
-                  onClick={() => setApproachTab('later')}
+                  onClick={() => setApproachTab('compare')}
                   className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                    approachTab === 'later' ? 'bg-[#5352ED] text-white shadow-xs' : 'bg-white text-[#475569] border border-[#E2E8F0]'
+                    approachTab === 'compare' ? 'bg-[#5352ED] text-white shadow-xs' : 'bg-white text-[#475569] border border-[#E2E8F0] hover:bg-[#F8FAFC]'
                   }`}
                 >
-                  Save for Later
+                  Compare with My Idea
                 </button>
               </div>
 
               <div className="bg-white rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-[#E2E8F0]">
-                <p className="text-xs font-medium text-[#0F172A] leading-relaxed">
+                <p className="text-xs font-medium text-[#0F172A] leading-relaxed max-w-xl">
                   {approachTab === 'suggested' && (details?.personalized_approach?.suggested_title || "Follow the recommendation closely to test how your audience responds.")}
                   {approachTab === 'adapt' && "Adjust the pacing, topic angle, or style to fit your channel voice."}
-                  {approachTab === 'later' && "Keep this saved in your planner library to review in upcoming cycles."}
+                  {approachTab === 'compare' && "Not sure yet? Send this recommendation to the Idea Page to compare it against your own concept before committing."}
                 </p>
 
-                {isPlanningSaved ? (
+                {approachTab === 'compare' ? (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      navigate('/ideas', {
+                        state: {
+                          prefilledIdeaA: {
+                            title: basicRec?.title || details?.title,
+                            description: basicRec?.reason || details?.summary || '',
+                            source: 'CKH Recommendation'
+                          }
+                        }
+                      });
+                    }}
+                    className="shrink-0 bg-[#5352ED] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#4342D9] transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    Take to Idea
+                  </button>
+                ) : isPlanningSaved ? (
                   <div className="flex items-center gap-2 shrink-0">
                     <button 
                       type="button"
@@ -346,7 +391,7 @@ useEffect(() => {
           </div>
 
           {/* RIGHT SIDEBAR COLUMN */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-20 self-start">
             
             {/* Quick Actions */}
             <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-2xs">

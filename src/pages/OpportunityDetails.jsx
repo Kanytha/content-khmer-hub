@@ -48,7 +48,6 @@ export default function OpportunityDetails() {
         const fetchOpportunityAndAnalysis = async () => {
             let activeOpp = opportunity;
 
-            // 1. If not passed in router state, fetch by ID or get the latest from Supabase
             if (!activeOpp) {
                 let query = supabase.from('opportunities').select('*');
                 if (oppId) {
@@ -65,10 +64,23 @@ export default function OpportunityDetails() {
                 }
             }
 
-            // 2. If no opportunity exists anywhere, safely redirect to the main opportunities page
             if (!activeOpp) {
                 navigate('/opportunities');
                 return;
+            }
+
+            const cacheKey = `ckh_opp_analysis_v1_${activeOpp.id || activeOpp.title.replace(/\s+/g, '_').toLowerCase()}`;
+            const cachedAnalysis = localStorage.getItem(cacheKey);
+
+            if (cachedAnalysis) {
+                try {
+                    const parsed = JSON.parse(cachedAnalysis);
+                    setAnalysis(parsed);
+                    setLoading(false);
+                    return;
+                } catch (e) {
+                    console.warn("Could not parse cached analysis", e);
+                }
             }
 
             setLoading(true);
@@ -79,7 +91,6 @@ export default function OpportunityDetails() {
                 if (user) {
                     setUserId(user.id);
 
-                    // User name & initials
                     const name = user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator';
                     const parts = name.trim().split(/\s+/);
                     const computedInitials = parts.length > 1
@@ -92,7 +103,6 @@ export default function OpportunityDetails() {
                         setAvatarUrl(user.user_metadata?.avatar_url || user.user_metadata?.picture || cachedAvatar);
                     }
 
-                    // Profile data
                     const { data: profile } = await supabase
                         .from('creator_profiles')
                         .select('*')
@@ -108,6 +118,10 @@ export default function OpportunityDetails() {
 
                 const result = await generateOpportunityAnalysis(activeOpp, selections);
                 setAnalysis(result);
+
+                if (result) {
+                    localStorage.setItem(cacheKey, JSON.stringify(result));
+                }
             } catch (err) {
                 console.error("Error analyzing opportunity:", err);
             } finally {
@@ -145,23 +159,31 @@ export default function OpportunityDetails() {
                     >
                         <FiGrid size={18} /> Dashboard
                     </div>
+
                     <div
-                        onClick={() => navigate('/recommendation-details')}
+                        onClick={() => navigate('/recommendations')}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
                     >
                         <FiStar size={18} /> Recommendations
                     </div>
-                    <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300">
+
+                    <div
+                        onClick={() => navigate('/ideas')}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+                    >
                         <FiEdit3 size={18} /> Ideas
                     </div>
+
                     <div
                         onClick={() => navigate('/opportunities')}
                         className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-bold"
                     >
                         <FiCompass size={18} /> Opportunities
                     </div>
+
+                    {/* Fixed: points to /profile now */}
                     <div
-                        onClick={() => navigate('/onboarding')}
+                        onClick={() => navigate('/profile')}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
                     >
                         <FiUser size={18} /> Profile
@@ -170,7 +192,10 @@ export default function OpportunityDetails() {
             </div>
 
             <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-                <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300">
+                <div
+                    onClick={() => navigate('/settings')}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+                >
                     <FiSettings size={18} /> Settings
                 </div>
                 <div
@@ -217,7 +242,7 @@ export default function OpportunityDetails() {
                             <FiArrowLeft size={16} /> Back to Opportunities
                         </button>
 
-                        // avatar profile and notification
+                        {/* // avatar profile and notification */}
                         {/* <div className="flex items-center gap-4">
                             <div className="relative flex items-center">
                                 <NotificationCenter
@@ -227,7 +252,7 @@ export default function OpportunityDetails() {
                                 />
                             </div> */}
 
-                            {/* {avatarUrl ? (
+                        {/* {avatarUrl ? (
                                 <img
                                     src={avatarUrl}
                                     alt="Profile"
@@ -350,60 +375,82 @@ export default function OpportunityDetails() {
 
                         </div>
 
-                        <div className="lg:col-span-4 space-y-4">
+                        {/* Right Side Action */}
+                        <div className="lg:col-span-4 sticky top-6 space-y-4">
 
-                            {/* Action Box */}
-                            <div className="bg-white rounded-2xl p-5 border border-[#E2E8F0] shadow-xs space-y-3">
-                                <h3 className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Actions</h3>
+                            {/* Actions Card */}
+                            <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs space-y-4">
+                                <h3 className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
+                                    Quick Actions
+                                </h3>
 
-                                {opportunity.source_url ? (
-                                    <a
-                                        href={opportunity.source_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="w-full bg-[#5352ED] text-white py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-[#4342D9] transition-colors shadow-xs"
+                                <div className="space-y-2.5">
+                                    {opportunity.source_url ? (
+                                        <a
+                                            href={opportunity.source_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="w-full bg-[#5352ED] text-white py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-[#4342D9] transition-all shadow-xs cursor-pointer"
+                                        >
+                                            <span>Open Official Announcement</span>
+                                            <FiExternalLink size={14} />
+                                        </a>
+                                    ) : (
+                                        <div className="text-xs text-[#94A3B8] text-center py-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                                            No external link provided
+                                        </div>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setSaved(!saved)}
+                                        className={`w-full py-3 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-all cursor-pointer ${saved
+                                            ? 'bg-[#EEF2FF] border-[#5352ED] text-[#5352ED]'
+                                            : 'bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8FAFC]'
+                                            }`}
                                     >
-                                        Open Official Announcement <FiExternalLink size={14} />
-                                    </a>
-                                ) : (
-                                    <div className="text-xs text-[#94A3B8] text-center py-2 bg-gray-50 rounded-xl">
-                                        No external link provided
-                                    </div>
-                                )}
+                                        <FiBookmark size={15} className={saved ? 'fill-[#5352ED]' : ''} />
+                                        <span>{saved ? 'Saved to Your List ✓' : 'Save Opportunity'}</span>
+                                    </button>
+                                </div>
 
-                                <button
-                                    onClick={() => setSaved(!saved)}
-                                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-colors ${
-                                        saved
-                                            ? 'bg-[#EEF2FF] border-[#C7D2FE] text-[#4338CA]'
-                                            : 'bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-gray-50'
-                                    }`}
-                                >
-                                    <FiBookmark size={15} /> {saved ? 'Saved to Your List' : 'Save Opportunity'}
-                                </button>
+                                <div className="pt-2 text-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/opportunities')}
+                                        className="text-xs text-[#94A3B8] hover:text-[#EF4444] transition-colors cursor-pointer"
+                                    >
+                                        Mark as Not Relevant
+                                    </button>
+                                </div>
 
-                                <button
-                                    onClick={() => navigate('/opportunities')}
-                                    className="w-full text-center text-xs text-[#94A3B8] hover:text-[#64748B] pt-2 transition-colors cursor-pointer"
-                                >
-                                    Mark as Not Relevant
-                                </button>
+                                <div className="pt-4 border-t border-[#F1F5F9]">
+                                    <p className="text-[11px] text-[#94A3B8] leading-relaxed text-center">
+                                        After exploring this opportunity, you can evaluate how it fits your schedule in the Idea Lab.
+                                    </p>
+                                </div>
                             </div>
 
-                            {/* Topics Card */}
-                            <div className="bg-white rounded-2xl p-5 border border-[#E2E8F0] shadow-xs">
-                                <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block mb-2">
+                            {/* Categories Card */}
+                            <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs space-y-3">
+                                <h4 className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
                                     Matching Categories
-                                </span>
+                                </h4>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {opportunity.topics?.map((topic, i) => (
-                                        <span
-                                            key={i}
-                                            className="bg-[#F1F5F9] text-[#475569] px-2.5 py-1 rounded-lg text-xs font-medium"
-                                        >
-                                            {topic}
+                                    {opportunity.topics && opportunity.topics.length > 0 ? (
+                                        opportunity.topics.map((topic, i) => (
+                                            <span
+                                                key={i}
+                                                className="bg-[#F1F5F9] text-[#475569] px-3 py-1 rounded-lg text-xs font-medium"
+                                            >
+                                                {topic}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="bg-[#F1F5F9] text-[#475569] px-3 py-1 rounded-lg text-xs font-medium">
+                                            Education
                                         </span>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
 

@@ -164,9 +164,9 @@ export const translations = {
   km: {
     // Navigation & Sidebar
     dashboard: "ផ្ទាំងគ្រប់គ្រង",
-    recommendations: "ការណែនាំយុទ្ធសាស្ត្រ",
-    ideas: "គំនិតមាតិកា",
-    opportunities: "ឱកាសការងារ & អាហារូបករណ៍",
+    recommendations: "មាតិកា",
+    ideas: "គំនិត",
+    opportunities: "អ្វីដែលគួរដឹង",
     profile: "ប្រវត្តិរូប",
     settings: "ការកំណត់",
     support: "ជំនួយ & គាំទ្រ",
@@ -176,7 +176,7 @@ export const translations = {
     dashboardSubtitle: "នេះជាបច្ចុប្បន្នភាពនៃប៉ុស្តិ៍មាតិការបស់អ្នកសម្រាប់ថ្ងៃនេះ។",
     quickActions: "សកម្មភាពរហ័ស",
     createIdea: "បង្កើតគំនិតមាតិកាថ្មី",
-    viewRecommendations: "មើលការណែនាំយុទ្ធសាស្ត្រ",
+    viewRecommendations: "មើលការណែនាំ",
     exploreOpportunities: "ស្វែងរកឱកាសថ្មីៗ",
     channelOverview: "ទិដ្ឋភាពទូទៅនៃប៉ុស្តិ៍",
     totalSubscribers: "អ្នកតាមដានសរុប",
@@ -194,7 +194,7 @@ export const translations = {
     turnQuestionsDesc: "ការបង្ហោះថ្មីៗរបស់អ្នកទទួលបានសំណួរស្រដៀងគ្នាជាច្រើនពីទស្សនិកជន។ ការឆ្លើយតបសំណួរទាំងនោះឥឡូវនេះ     អាចជួយពង្រឹងទំនាក់ទំនងកាន់តែជិតស្និទ្ធ។",
     viewRecommendation: "មើលការណែនាំ",
     reflectionsPlaceholder: "កំណត់ត្រាឆ្លុះបញ្ចាំងរបស់អ្នកនឹងបង្ហាញនៅទីនេះ នៅពេលអ្នកអនុវត្ត     និងបង្ហោះមាតិកាណែនាំដំបូងរួចរាល់។",
-    dashboardRecommendations: "ការណែនាំយុទ្ធសាស្ត្រ",
+    dashboardRecommendations: "ការណែនាំមាតិកា",
     whyTag: "ហេតុអ្វី?",
     viewDetails: "មើលលម្អិត",
     buildFirstStrategyTitle: "តោះចាប់ផ្តើមបង្កើតយុទ្ធសាស្ត្រដំបូងរបស់អ្នក",
@@ -207,7 +207,7 @@ export const translations = {
     unlockIntelligence: "ដោះសោ Creator Intelligence ($2.99)",
 
     // Recommendations Page
-    recTitle: "ការណែនាំយុទ្ធសាស្ត្រ",
+    recTitle: "ការណែនាំមាតិកា",
     recSubtitle: "ទិន្នន័យជាក់លាក់ និងការវិភាគស៊ីជម្រៅ ដើម្បីបង្កើនគុណភាពផលិតមាតិការបស់អ្នក។",
     connectYouTube: "ភ្ជាប់ YouTube",
     connectedBadge: "បានភ្ជាប់",

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { getCreatorContext, evaluateSingleIdea, compareIdeas } from '../services/ideaEvaluationService';
 import { useSubscription } from '../hooks/useSubscription';
@@ -35,6 +36,21 @@ export default function IdeasPage() {
 
   const { t, language } = useLanguage();
   const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+
+  const location = useLocation();
+  const incomingIdea = location.state?.prefilledIdeaA;
+
+  useEffect(() => {
+    if (incomingIdea?.title && userId) {
+      setSelectedIdea({
+        title: incomingIdea.title,
+        description: incomingIdea.description || '',
+        intended_format: 'Short video',
+        concern: 'Compared from CKH Recommendation'
+      });
+      setIsModalOpen(true);
+    }
+  }, [incomingIdea, userId]);
 
   useEffect(() => {
     async function loadData() {
@@ -141,6 +157,18 @@ export default function IdeasPage() {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (incomingIdea?.title && userId) {
+      setSelectedIdea({
+        title: incomingIdea.title,
+        description: incomingIdea.description || '',
+        intended_format: 'Shorts / Video',
+        concern: 'Compared from CKH Recommendations'
+      });
+      setIsModalOpen(true);
+    }
+  }, [incomingIdea, userId]);
 
   const handleSaveIdea = async (ideaData) => {
     if (ideaData.id) {
@@ -746,8 +774,14 @@ export default function IdeasPage() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedIdea(null);
+          navigate('/ideas', { replace: true, state: {} });
         }}
-        onSave={handleSaveIdea}
+        onSave={async (data) => {
+          await handleSaveIdea(data);
+          setIsModalOpen(false);
+          setSelectedIdea(null);
+          navigate('/ideas', { replace: true, state: {} });
+        }}
         initialData={selectedIdea}
       />
 

@@ -6,7 +6,8 @@ import NotificationCenter from '../components/NotificationCenter';
 import logo from "../assets/images/LOGO1-removebg-preview.png";
 import {
   FiGrid, FiStar, FiEdit3, FiCompass, FiUser,
-  FiSettings, FiHelpCircle, FiX, FiMenu, FiBookOpen
+  FiSettings, FiHelpCircle, FiX, FiMenu, FiBookOpen,
+  FiCheckCircle, FiClock, FiPlusCircle, FiArrowLeft
 } from 'react-icons/fi';
 
 export default function ReflectionPage() {
@@ -19,14 +20,21 @@ export default function ReflectionPage() {
   const [initials, setInitials] = useState('CR');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Recommendation being reflected upon (passed via state or fallback)
-  const targetRecommendation = location.state?.recommendation || {
-    title: 'BACII Math Tips — Part 1',
-    category: 'Education - Recent post'
-  };
+  const [viewMode, setViewMode] = useState(location.state?.recommendation ? 'form' : 'list');
+  const [activeTab, setActiveTab] = useState('completed');
 
-  // Form State
+  const [completedReflections, setCompletedReflections] = useState([]);
+  const [pendingReflections, setPendingReflections] = useState([]);
+
+  const [targetRecommendation, setTargetRecommendation] = useState(
+    location.state?.recommendation || {
+      title: 'BACII Math Tips — Part 1',
+      category: 'Education - Recent post'
+    }
+  );
+
   const [expectation, setExpectation] = useState('');
   const [audienceNotes, setAudienceNotes] = useState([]);
   const [unexpectedText, setUnexpectedText] = useState('');
@@ -34,33 +42,76 @@ export default function ReflectionPage() {
   const [guidanceRating, setGuidanceRating] = useState('');
 
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate('/login');
-        return;
+    async function loadData() {
+      try {
+        setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate('/login');
+          return;
+        }
+        setCurrentUser(user);
+
+        const name = user.user_metadata?.full_name || user.user_metadata?.username || user.email?.split('@')[0] || 'Creator';
+        setInitials(name.slice(0, 2).toUpperCase());
+
+        const { data: profile } = await supabase
+          .from('creator_profiles')
+          .select('avatar_url')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const resolved = profile?.avatar_url || localStorage.getItem('user_avatar_url');
+        if (resolved) setAvatarUrl(resolved);
+
+        const { data: savedReflections } = await supabase
+          .from('reflections')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        setCompletedReflections(savedReflections || []);
+
+        const { data: userIdeas } = await supabase
+          .from('content_ideas')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        const reflectedTitles = (savedReflections || []).map(r => (r.recommendation_title || '').trim().toLowerCase());
+        
+        const unreflected = (userIdeas || []).filter(idea => 
+          !reflectedTitles.includes((idea.title || '').trim().toLowerCase())
+        );
+
+        setPendingReflections(unreflected);
+      } catch (err) {
+        console.error("Error loading reflection list:", err);
+      } finally {
+        setLoading(false);
       }
-      setCurrentUser(user);
-
-      const name = user.user_metadata?.full_name || user.user_metadata?.username || user.email?.split('@')[0] || 'Creator';
-      setInitials(name.slice(0, 2).toUpperCase());
-
-      const { data: profile } = await supabase
-        .from('creator_profiles')
-        .select('avatar_url')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      const resolved = profile?.avatar_url || localStorage.getItem('user_avatar_url');
-      if (resolved) setAvatarUrl(resolved);
     }
-    loadUser();
+
+    loadData();
   }, [navigate]);
 
   const toggleObservation = (item) => {
     setAudienceNotes(prev =>
       prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
     );
+  };
+
+  const handleStartReflect = (item) => {
+    setTargetRecommendation({
+      title: item.title,
+      category: item.topic || item.category || 'Content Idea'
+    });
+    setExpectation('');
+    setAudienceNotes([]);
+    setUnexpectedText('');
+    setFutureChange('');
+    setGuidanceRating('');
+    setViewMode('form');
   };
 
   const handleSaveReflection = async () => {
@@ -79,10 +130,14 @@ export default function ReflectionPage() {
         guidance_rating: guidanceRating
       };
 
-      // 1. Save to reflections table
-      await supabase.from('reflections').insert(payload);
+      const { data: newEntry, error } = await supabase
+        .from('reflections')
+        .insert(payload)
+        .select()
+        .single();
 
-      // 2. Update creator_profiles recent reflection preview
+      if (error) throw error;
+
       await supabase
         .from('creator_profiles')
         .update({
@@ -94,8 +149,10 @@ export default function ReflectionPage() {
         })
         .eq('user_id', currentUser.id);
 
-      // 3. Mark notification or redirect back to dashboard
-      navigate('/dashboard');
+      setCompletedReflections(prev => [newEntry || payload, ...prev]);
+      setPendingReflections(prev => prev.filter(p => p.title !== targetRecommendation.title));
+      setViewMode('list');
+      setActiveTab('completed');
     } catch (err) {
       console.error("Error saving reflection:", err);
     } finally {
@@ -185,7 +242,6 @@ export default function ReflectionPage() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A] bg-white font-sans antialiased">
-      {/* Mobile Topbar */}
       <div className="md:hidden flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-white">
         <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
         <div className="flex items-center gap-2">
@@ -205,14 +261,11 @@ export default function ReflectionPage() {
         </div>
       )}
 
-      {/* Desktop Sidebar */}
       <div className="hidden md:block w-[250px] lg:w-[260px] h-full bg-[#F5F2FF] border-r border-[#E2E8F0] shrink-0 z-10">
         <SidebarContent />
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 h-full overflow-y-auto px-6 py-6 md:px-12 md:py-8 lg:px-16 bg-white">
-        {/* Header Right Bell & Profile */}
         <div className="justify-end items-center mb-6 gap-5 hidden md:flex">
           <NotificationCenter userId={currentUser?.id} isPremium={isPremium} />
           <div onClick={() => navigate('/profile')} className="w-9 h-9 rounded-full border border-[#E2E8F0] flex items-center justify-center overflow-hidden cursor-pointer shadow-xs bg-[#FFF0F5]">
@@ -224,192 +277,318 @@ export default function ReflectionPage() {
           </div>
         </div>
 
-        {/* Page Container */}
-        <div className="max-w-2xl mx-auto space-y-10 pb-16">
-          {/* Title Header */}
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#0F172A] mb-2">
-              Reflection
-            </h1>
-            <p className="text-sm font-semibold text-[#0F172A] mb-1">
-              Help CKH learn from your recent content.
-            </p>
-            <p className="text-xs text-[#64748B] leading-relaxed">
-              Share what you noticed so future guidance can better fit your audience and content.
-            </p>
-          </div>
 
-          {/* Target Recommendation Card */}
-          <div className="border border-[#E2E8F0] rounded-2xl p-5 bg-[#FFFFFF] shadow-2xs space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#F5F2FF] text-[#5352ED] flex items-center justify-center shrink-0">
-                <FiBookOpen size={20} />
+        <div className="max-w-3xl mx-auto space-y-6 pb-16">
+
+          {viewMode === 'list' ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A] mb-1">
+                    Your Content Reflections
+                  </h1>
+                  <p className="text-xs sm:text-sm text-[#64748B]">
+                    Review what you learned from previous posts or reflect on new content.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode('form')}
+                  className="inline-flex items-center gap-2 bg-[#5352ED] text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-[#4342D9] transition-all shadow-xs cursor-pointer"
+                >
+                  <FiPlusCircle size={15} /> New Reflection
+                </button>
               </div>
+
+              <div className="flex border-b border-[#E2E8F0] gap-6 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('completed')}
+                  className={`pb-3 font-semibold transition-colors flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'completed' 
+                      ? 'text-[#5352ED] border-b-2 border-[#5352ED]' 
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  <FiCheckCircle size={16} />
+                  Answered Reflections ({completedReflections.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('pending')}
+                  className={`pb-3 font-semibold transition-colors flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'pending' 
+                      ? 'text-[#5352ED] border-b-2 border-[#5352ED]' 
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  <FiClock size={16} />
+                  Not Yet Answered ({pendingReflections.length})
+                </button>
+              </div>
+
+              {activeTab === 'completed' && (
+                <div className="space-y-4">
+                  {loading ? (
+                    <p className="text-xs text-[#64748B] py-8 text-center">Loading reflections...</p>
+                  ) : completedReflections.length > 0 ? (
+                    completedReflections.map((ref, idx) => (
+                      <div key={ref.id || idx} className="p-5 border border-[#E2E8F0] rounded-2xl bg-white shadow-2xs space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="text-[10px] font-bold tracking-wider text-[#5352ED] uppercase bg-[#EEF2FF] px-2.5 py-0.5 rounded-md">
+                              {ref.recommendation_category || 'Post Reflection'}
+                            </span>
+                            <h3 className="text-base font-bold text-[#0F172A] mt-1.5">{ref.recommendation_title}</h3>
+                          </div>
+                          <span className="text-[11px] text-[#94A3B8]">
+                            {ref.created_at ? new Date(ref.created_at).toLocaleDateString() : 'Recorded'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#F8FAFC] p-3.5 rounded-xl border border-[#F1F5F9]">
+                          <div>
+                            <span className="text-[11px] text-[#64748B] block">Result vs Expected:</span>
+                            <span className="font-semibold text-[#0F172A]">{ref.expectation_result || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[11px] text-[#64748B] block">Next Change:</span>
+                            <span className="font-semibold text-[#0F172A]">{ref.future_change || 'N/A'}</span>
+                          </div>
+                        </div>
+
+                        {ref.unexpected_notes && (
+                          <p className="text-xs text-[#334155] italic bg-white p-3 rounded-xl border border-[#E2E8F0]">
+                            "{ref.unexpected_notes}"
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-12 text-xs text-[#94A3B8] border border-dashed rounded-2xl">
+                      No answered reflections yet.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'pending' && (
+                <div className="space-y-3">
+                  {pendingReflections.length > 0 ? (
+                    pendingReflections.map(idea => (
+                      <div key={idea.id} className="p-4 border border-[#E2E8F0] rounded-2xl flex items-center justify-between hover:bg-[#F8FAFC] transition-colors">
+                        <div>
+                          <h4 className="text-sm font-semibold text-[#0F172A]">{idea.title}</h4>
+                          <span className="text-[11px] text-[#64748B]">{idea.topic || 'Ready for reflection'}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleStartReflect(idea)}
+                          className="inline-flex items-center gap-1.5 text-xs text-[#5352ED] font-semibold bg-[#EEF2FF] px-3.5 py-2 rounded-xl hover:bg-[#E0E7FF] transition-colors cursor-pointer"
+                        >
+                          <FiEdit3 size={13} /> Reflect Now
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-12 text-xs text-[#94A3B8] border border-dashed rounded-2xl">
+                      No pending items waiting for reflection.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+
+            <div className="space-y-10">
+              <button 
+                type="button" 
+                onClick={() => setViewMode('list')}
+                className="inline-flex items-center gap-2 text-xs text-[#64748B] hover:text-[#0F172A] cursor-pointer"
+              >
+                <FiArrowLeft size={14} /> Back to All Reflections
+              </button>
+
               <div>
-                <span className="text-[10px] font-bold tracking-wider text-[#94A3B8] uppercase">
-                  Reflecting on
-                </span>
-                <h3 className="text-base font-bold text-[#0F172A] leading-snug">
-                  {targetRecommendation.title}
-                </h3>
-                <p className="text-xs text-[#64748B]">{targetRecommendation.category}</p>
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#0F172A] mb-2">
+                  Reflection
+                </h1>
+                <p className="text-sm font-semibold text-[#0F172A] mb-1">
+                  Help CKH learn from your recent content.
+                </p>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  Share what you noticed so future guidance can better fit your audience and content.
+                </p>
+              </div>
+
+              <div className="border border-[#E2E8F0] rounded-2xl p-5 bg-[#FFFFFF] shadow-2xs space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#F5F2FF] text-[#5352ED] flex items-center justify-center shrink-0">
+                    <FiBookOpen size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold tracking-wider text-[#94A3B8] uppercase">
+                      Reflecting on
+                    </span>
+                    <h3 className="text-base font-bold text-[#0F172A] leading-snug">
+                      {targetRecommendation.title}
+                    </h3>
+                    <p className="text-xs text-[#64748B]">{targetRecommendation.category}</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#F5F2FF] rounded-xl px-4 py-3 text-xs italic text-[#5352ED] border border-[#E0E7FF]">
+                  "Tell us what you noticed about this content and your audience."
+                </div>
+              </div>
+
+              <section className="space-y-3">
+                <h2 className="text-base font-bold text-[#0F172A]">
+                  How did it compare with what you expected?
+                </h2>
+                <div className="flex flex-wrap gap-2.5">
+                  {expectationOptions.map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setExpectation(opt)}
+                      className={`px-5 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+                        expectation === opt
+                          ? 'bg-[#5352ED] text-white border-[#5352ED] shadow-xs'
+                          : 'bg-white text-[#475569] border-[#E2E8F0] hover:border-gray-300'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <div>
+                  <h2 className="text-base font-bold text-[#0F172A]">
+                    What did you notice from your audience?
+                  </h2>
+                  <p className="text-xs text-[#64748B]">Select anything that stood out to you.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {observationOptions.map(opt => {
+                    const checked = audienceNotes.includes(opt);
+                    return (
+                      <label
+                        key={opt}
+                        onClick={() => toggleObservation(opt)}
+                        className={`flex items-center gap-3 p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                          checked
+                            ? 'border-[#5352ED] bg-[#F5F2FF] text-[#0F172A] font-semibold'
+                            : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {}}
+                          className="w-4 h-4 rounded text-[#5352ED] focus:ring-[#5352ED] border-[#CBD5E1]"
+                        />
+                        <span>{opt}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <div>
+                  <h2 className="text-base font-bold text-[#0F172A]">
+                    Was there anything you didn't expect?
+                  </h2>
+                  <p className="text-xs text-[#64748B]">
+                    Tell CKH anything you noticed from your audience or the conversation around this post.
+                  </p>
+                </div>
+
+                <textarea
+                  rows={3}
+                  value={unexpectedText}
+                  onChange={(e) => setUnexpectedText(e.target.value)}
+                  placeholder="I expected the exam tips to get the most attention, but people were more interested in the examples..."
+                  className="w-full p-4 rounded-2xl border border-[#E2E8F0] bg-white text-xs text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#5352ED] focus:ring-1 focus:ring-[#5352ED] transition-all resize-none leading-relaxed"
+                />
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="text-base font-bold text-[#0F172A]">
+                  If you made something similar again, would you change anything?
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {changeOptions.map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setFutureChange(opt)}
+                      className={`p-3.5 rounded-xl text-left text-xs border transition-all cursor-pointer ${
+                        futureChange === opt
+                          ? 'border-[#5352ED] bg-[#F5F2FF] text-[#0F172A] font-semibold shadow-xs'
+                          : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="text-base font-bold text-[#0F172A]">
+                  How useful was CKH's guidance?
+                </h2>
+                <div className="flex flex-wrap gap-2.5">
+                  {ratingOptions.map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setGuidanceRating(opt)}
+                      className={`px-4 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+                        guidanceRating === opt
+                          ? 'bg-[#5352ED] text-white border-[#5352ED] shadow-xs'
+                          : 'bg-white text-[#475569] border-[#E2E8F0] hover:border-gray-300'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <div className="pt-6 border-t border-[#F1F5F9] text-center space-y-4">
+                <p className="text-[11px] text-[#94A3B8]">
+                  Your answers help CKH build a better understanding of your content and audience over time.
+                </p>
+
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={handleSaveReflection}
+                    className="bg-[#5352ED] text-white text-xs font-bold px-8 py-3 rounded-xl hover:bg-[#4342D9] transition-all shadow-xs cursor-pointer disabled:opacity-60"
+                  >
+                    {submitting ? 'Saving Reflection...' : 'Save Reflection'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className="bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xs font-semibold px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-
-            <div className="bg-[#F5F2FF] rounded-xl px-4 py-3 text-xs italic text-[#5352ED] border border-[#E0E7FF]">
-              "Tell us what you noticed about this content and your audience."
-            </div>
-          </div>
-
-          {/* Question 1: How did it compare with what you expected? */}
-          <section className="space-y-3">
-            <h2 className="text-base font-bold text-[#0F172A]">
-              How did it compare with what you expected?
-            </h2>
-            <div className="flex flex-wrap gap-2.5">
-              {expectationOptions.map(opt => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setExpectation(opt)}
-                  className={`px-5 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                    expectation === opt
-                      ? 'bg-[#5352ED] text-white border-[#5352ED] shadow-xs'
-                      : 'bg-white text-[#475569] border-[#E2E8F0] hover:border-gray-300'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Question 2: What did you notice from your audience? */}
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-base font-bold text-[#0F172A]">
-                What did you notice from your audience?
-              </h2>
-              <p className="text-xs text-[#64748B]">Select anything that stood out to you.</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {observationOptions.map(opt => {
-                const checked = audienceNotes.includes(opt);
-                return (
-                  <label
-                    key={opt}
-                    onClick={() => toggleObservation(opt)}
-                    className={`flex items-center gap-3 p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                      checked
-                        ? 'border-[#5352ED] bg-[#F5F2FF] text-[#0F172A] font-semibold'
-                        : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {}}
-                      className="w-4 h-4 rounded text-[#5352ED] focus:ring-[#5352ED] border-[#CBD5E1]"
-                    />
-                    <span>{opt}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Question 3: Was there anything you didn't expect? */}
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-base font-bold text-[#0F172A]">
-                Was there anything you didn't expect?
-              </h2>
-              <p className="text-xs text-[#64748B]">
-                Tell CKH anything you noticed from your audience or the conversation around this post.
-              </p>
-            </div>
-
-            <textarea
-              rows={3}
-              value={unexpectedText}
-              onChange={(e) => setUnexpectedText(e.target.value)}
-              placeholder="I expected the exam tips to get the most attention, but people were more interested in the examples..."
-              className="w-full p-4 rounded-2xl border border-[#E2E8F0] bg-white text-xs text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#5352ED] focus:ring-1 focus:ring-[#5352ED] transition-all resize-none leading-relaxed"
-            />
-          </section>
-
-          {/* Question 4: If you made something similar again, would you change anything? */}
-          <section className="space-y-3">
-            <h2 className="text-base font-bold text-[#0F172A]">
-              If you made something similar again, would you change anything?
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {changeOptions.map(opt => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setFutureChange(opt)}
-                  className={`p-3.5 rounded-xl text-left text-xs border transition-all cursor-pointer ${
-                    futureChange === opt
-                      ? 'border-[#5352ED] bg-[#F5F2FF] text-[#0F172A] font-semibold shadow-xs'
-                      : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Question 5: How useful was CKH's guidance? */}
-          <section className="space-y-3">
-            <h2 className="text-base font-bold text-[#0F172A]">
-              How useful was CKH's guidance?
-            </h2>
-            <div className="flex flex-wrap gap-2.5">
-              {ratingOptions.map(opt => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setGuidanceRating(opt)}
-                  className={`px-4 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                    guidanceRating === opt
-                      ? 'bg-[#5352ED] text-white border-[#5352ED] shadow-xs'
-                      : 'bg-white text-[#475569] border-[#E2E8F0] hover:border-gray-300'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Footer Save & Skip Actions */}
-          <div className="pt-6 border-t border-[#F1F5F9] text-center space-y-4">
-            <p className="text-[11px] text-[#94A3B8]">
-              Your answers help CKH build a better understanding of your content and audience over time.
-            </p>
-
-            <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={handleSaveReflection}
-                className="bg-[#5352ED] text-white text-xs font-bold px-8 py-3 rounded-xl hover:bg-[#4342D9] transition-all shadow-xs cursor-pointer disabled:opacity-60"
-              >
-                {submitting ? 'Saving Reflection...' : 'Save Reflection'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xs font-semibold px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                Skip for Now
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

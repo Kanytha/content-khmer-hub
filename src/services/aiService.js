@@ -59,47 +59,60 @@ const callGeminiJson = async (prompt, maxRetries = 2) => {
 // recommendation card on dashboard
 export const generateWorkspaceData = async (selections) => {
   const prompt = `
-    You are the Content Khmer Hub (CKH) AI. CKH is a decision-support system, not a content generator. 
-    Do not invent analytics, audience behavior, trends, or creator information. 
-    Use ONLY the information provided below. Always explain the reasoning based on this exact data.
+You are the Content Khmer Hub (CKH) decision-support engine.
 
-    CREATOR PROFILE:
-    - Topic: ${selections.topic || "General Content"}
-    - Platform: ${selections.platform || "Social Media"}
-    - Goals: ${selections.primaryGoals?.join(", ") || "Growth"}
-    - Challenge: ${selections.biggestChallenge?.join(", ") || "Consistency"}
-    
-    TASK:
-    Generate 1 "Current Focus" and 3 "Recommendations". 
-    Make them highly specific to the Creator Profile above. 
-    
-    Return ONLY a raw JSON object exactly like this structure, with absolutely no markdown formatting or conversational text:
+CREATOR PROFILE & ACTIVITY:
+- Primary Category: ${selections.topic || "Education"}
+- Specific Content Focus & Tags: ${selections.contentTags?.join(", ") || "Web Development, Coding, Frontend, Portfolio"}
+- Recent Submitted Ideas / Activity: ${selections.recentIdeaPatterns?.join("; ") || "Building complete portfolio websites"}
+- Platform: ${selections.platform || "YouTube"}
+- Primary Goal: ${selections.primaryGoals?.join(", ") || "Reach More People"}
+- Current Challenge: ${selections.biggestChallenge?.join(", ") || "Consistency"}
+
+CRITICAL DOMAIN RULE:
+Do NOT produce generic, high-level education advice (e.g., studying tips, general school homework).
+The creator's specific domain is technical coding, software development, and digital creation.
+All recommendations, formats, hooks, and actions MUST directly relate to programming, code workflows, website building, or technical tools.
+
+ABSOLUTE DATA RULE:
+1. Ground truth only: Rely strictly on the profile and technical tags above.
+2. NEVER advise "asking your audience or waiting for comments". Focus entirely on creator-controlled coding examples and structure.
+3. Provide 3 distinct technical angles:
+   - rec_1: Specific Technical Angle (a concrete coding concept or beginner trap)
+   - rec_2: Technical Format / Packaging (before/after code refactor, short teardown, workflow demo)
+   - rec_3: Series / Scope Narrowing (splitting a large project like a portfolio build into bite-sized segments)
+
+OUTPUT FORMAT:
+Return ONLY raw JSON with this exact structure:
+{
+  "current_focus": {
+    "title": "Actionable technical focus title",
+    "description": "One concise sentence connecting their coding focus to an achievable milestone."
+  },
+  "active_recommendations": [
     {
-      "current_focus": {
-        "title": "Short action-oriented title",
-        "description": "One specific sentence explaining what to focus on right now and why it fits their profile."
-      },
-      "active_recommendations": [
-        {
-          "id": "rec_1",
-          "title": "Actionable Idea Title",
-          "reason": "Explain exactly why this fits their stated goals and challenges.",
-          "action": "Specific next step to take"
-        },
-        {
-          "id": "rec_2",
-          "title": "Actionable Idea Title",
-          "reason": "Explain exactly why this fits their stated goals and challenges.",
-          "action": "Specific next step to take"
-        },
-        {
-          "id": "rec_3",
-          "title": "Actionable Idea Title",
-          "reason": "Explain exactly why this fits their stated goals and challenges.",
-          "action": "Specific next step to take"
-        }
-      ]
+      "id": "rec_1",
+      "type": "Content Direction",
+      "title": "Specific Code Angle Title",
+      "reason": "Explain why this matches their stated goal and challenge based on their specific technical focus.",
+      "action": "One concrete step the creator can code or outline today."
+    },
+    {
+      "id": "rec_2",
+      "type": "Format / Packaging",
+      "title": "Specific Code Packaging Title",
+      "reason": "Explain why this format highlights code clarity and retention without audience reliance.",
+      "action": "One concrete step the creator can code or outline today."
+    },
+    {
+      "id": "rec_3",
+      "type": "Series & Experiment",
+      "title": "Manageable Build Title",
+      "reason": "Explain why breaking down this programming build reduces project friction.",
+      "action": "One concrete step the creator can code or outline today."
     }
+  ]
+}
   `;
 
   try {
@@ -108,8 +121,8 @@ export const generateWorkspaceData = async (selections) => {
     console.error("AI Error caught successfully:", error);
     return {
       current_focus: {
-        title: "Welcome to your workspace!",
-        description: "We are preparing your personalized ideas. Please check back later."
+        title: "Complete your creator profile",
+        description: "Add more details about your goals and technical focus so CKH can generate structured decision support."
       },
       active_recommendations: []
     };
@@ -276,38 +289,46 @@ export const evaluateOpportunityRelevance = async (opportunities, selections) =>
 
 // Opportunity Details: Decision-support analysis
 export const generateOpportunityAnalysis = async (opportunity, selections) => {
+  const niche = selections?.topic || selections?.focus || "Content Creation";
+  const goals = Array.isArray(selections?.primaryGoals)
+    ? selections.primaryGoals.join(", ")
+    : (selections?.goal || "Channel Growth & Audience Value");
+  const challenges = Array.isArray(selections?.biggestChallenge)
+    ? selections.biggestChallenge.join(", ")
+    : (selections?.challenge || "Balancing Time & Production Effort");
+
   const prompt = `
-    You are the Content Khmer Hub (CKH) AI, a strict decision-support system.
-    Analyze an external Cambodian opportunity for a specific creator.
-    
-    STRICT RULES:
-    1. Do not modify or fabricate any factual event details (dates, eligibility, location).
-    2. Explain WHY this opportunity could be relevant to the creator's content and goals.
-    3. Provide realistic considerations or trade-offs (e.g., preparation time, travel, research vs. production).
-    4. Never guarantee views, reach, or success. Use words like "explore", "opportunity to cover", "test".
+    You are the Content Khmer Hub (CKH) Decision AI, an authentic content advisor for social media creators in Cambodia.
+    Analyze an external Cambodian opportunity (scholarship, workshop, contest, or event) for this specific creator.
 
     CREATOR PROFILE:
-    - Topic / Focus: ${selections?.topic || "General Content"}
-    - Platform: ${selections?.platform || "Social Media"}
-    - Goals: ${selections?.primaryGoals?.join(", ") || "Growth"}
-    - Challenges: ${selections?.biggestChallenge?.join(", ") || "Consistency"}
+    - Primary Niche / Topic: "${niche}"
+    - Primary Platform: "${selections?.platform || "Social Media"}"
+    - Current Growth Goals: "${goals}"
+    - Key Pain Point / Challenge: "${challenges}"
 
-    OPPORTUNITY DETAILS:
-    - Title: ${opportunity.title}
-    - Type: ${opportunity.type}
-    - Organizer: ${opportunity.organizer}
-    - Location: ${opportunity.location}
-    - Topics: ${opportunity.topics?.join(", ")}
-    - Description: ${opportunity.description}
+    EXTERNAL OPPORTUNITY DATA:
+    - Title: "${opportunity?.title || 'External Program'}"
+    - Type / Category: "${opportunity?.type || 'Event / Opportunity'}"
+    - Organizer: "${opportunity?.organizer || 'Cambodian Organization'}"
+    - Location: "${opportunity?.location || 'Cambodia'}"
+    - Topics: "${opportunity?.topics?.join(", ") || 'General'}"
+    - Description: "${opportunity?.description || 'No detailed description provided'}"
 
-    Return a JSON object with this exact schema:
+    ANALYSIS RULES:
+    1. Ground the advice directly in their niche ("${niche}"). Never give generic filler like "this is a good event to attend".
+    2. Respect creator time: address how much effort/preparation covering this takes vs. their current schedule.
+    3. Never guarantee views or algorithm success. Use supportive, pragmatic wording ("explore this angle", "test as a short update").
+    4. Provide one specific, tangible hook or production angle they can record or post.
+
+    Return ONLY a valid JSON object matching this schema:
     {
-      "why_relevant": "1-2 sentences explaining why this fits their specific topic and goals, and how they could turn it into content.",
+      "why_relevant": "2 concise sentences explaining specifically why this announcement matters to an audience interested in ${niche}, and how covering it builds creator authority.",
       "considerations": [
-        "First practical trade-off or requirement",
-        "Second practical consideration"
+        "First practical trade-off or requirement (e.g. deadline urgency, verification of eligibility, or filming setup)",
+        "Second practical consideration (e.g. balancing research time vs. creating a fast 45s summary)"
       ],
-      "suggested_content_angle": "One actionable idea for how to cover or participate in this opportunity."
+      "suggested_content_angle": "A concrete video or post hook + format idea (e.g., 'Record a 45s breakdown answering: What documents do you actually need before the deadline?')"
     }
   `;
 
@@ -316,12 +337,12 @@ export const generateOpportunityAnalysis = async (opportunity, selections) => {
   } catch (error) {
     console.error("Failed to generate opportunity analysis:", error);
     return {
-      why_relevant: `This ${opportunity.type?.toLowerCase() || 'event'} relates to your focus on ${selections?.topic || 'content creation'} and could provide authentic real-world topics for your audience.`,
+      why_relevant: `This ${opportunity?.type?.toLowerCase() || 'event'} relates directly to your focus on ${niche}, offering a timely real-world resource your followers can benefit from.`,
       considerations: [
-        "Review the official eligibility and registration criteria before committing.",
-        "Consider whether attending or covering this fits your current production schedule."
+        "Check the official deadline and eligibility criteria before scripting your post.",
+        "Consider whether a quick 30-60 second highlight fits your current weekly production schedule."
       ],
-      suggested_content_angle: "Document key takeaways or your personal perspective to share with your audience."
+      suggested_content_angle: "Draft a concise 3-point breakdown highlighting who qualifies, key dates, and official next steps."
     };
   }
 };

@@ -5,6 +5,7 @@ import { toggleSaveItem } from '../services/savedService';
 import { useSubscription } from '../hooks/useSubscription';
 import SubscriptionPromptModal from '../components/SubscriptionPromptModal';
 import NotificationCenter from '../components/NotificationCenter';
+import { generateWorkspaceData } from '../services/aiService';
 import SettingsPopover from "../components/SettingsPopover";
 import { useLanguage } from '../context/LanguageContext';
 import {
@@ -68,6 +69,26 @@ export default function Dashboard() {
           return;
         }
 
+        // --- FETCH USER IDEAS & BUILD RICH CODING CONTEXT ---
+        const { data: userIdeas } = await supabase
+          .from('content_ideas')
+          .select('title, format, topic')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        const enrichedContext = {
+          topic: data?.focus || data?.topic || "Web Development & Coding Education",
+          platform: data?.platform || "YouTube",
+          primaryGoals: data?.goals || [data?.goal || "Reach More People"],
+          biggestChallenge: data?.challenges || [data?.challenge || "Finding relevant coding angles"],
+          contentTags: data?.content_topics || ["Coding", "React", "Portfolio Website", "Web Development"],
+          recentIdeaPatterns: userIdeas?.map(i => `${i.title} (${i.format || 'Video'})`) || [
+            "Building complete portfolio website",
+            "React state tutorial"
+          ]
+        };
+
         const resolvedAvatar =
           data?.avatar_url ||
           user.user_metadata?.avatar_url ||
@@ -77,39 +98,49 @@ export default function Dashboard() {
         if (resolvedAvatar && isMounted) {
           setAvatarUrl(resolvedAvatar);
         }
-        
-        // --- 3-DAY ROTATION CHECK ---
+
+        // --- 3-DAY ROTATION & FRESH GENERATION CHECK ---
         const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-        const generatedTime = data?.recommendations_generated_at 
-          ? new Date(data.recommendations_generated_at).getTime() 
+        const generatedTime = data?.recommendations_generated_at
+          ? new Date(data.recommendations_generated_at).getTime()
           : 0;
 
         const isCycleExpired = (Date.now() - generatedTime) > THREE_DAYS_MS;
+        const hasNoRecs = !data?.active_recommendations || data?.active_recommendations?.length === 0;
 
-        if (isCycleExpired && data?.active_recommendations?.length > 0) {
+        // If 3 days passed OR user has no recommendations left, generate fresh ones!
+        if ((isCycleExpired || hasNoRecs) && isMounted) {
           try {
-            const updatedHistory = [
-              ...(data.history_recommendations || []),
-              ...data.active_recommendations
-            ];
+            const aiResult = await generateWorkspaceData(enrichedContext);
 
-            await supabase
-              .from('creator_profiles')
-              .update({
-                history_recommendations: updatedHistory,
-                recommendations_generated_at: new Date().toISOString()
-              })
-              .eq('user_id', user.id);
+            if (aiResult?.active_recommendations?.length > 0) {
+              const freshActive = aiResult.active_recommendations;
+              const updatedHistory = [
+                ...(data?.history_recommendations || []),
+                ...(data?.active_recommendations || [])
+              ];
 
-            data.recommendations_generated_at = new Date().toISOString();
+              await supabase
+                .from('creator_profiles')
+                .update({
+                  active_recommendations: freshActive,
+                  history_recommendations: updatedHistory,
+                  recommendations_generated_at: new Date().toISOString()
+                })
+                .eq('user_id', user.id);
+
+              data.active_recommendations = freshActive;
+              data.history_recommendations = updatedHistory;
+              data.recommendations_generated_at = new Date().toISOString();
+            }
           } catch (rotateErr) {
-            console.warn("Could not cycle recommendations:", rotateErr);
+            console.warn("Could not generate fresh recommendations:", rotateErr);
           }
         }
 
         if (isMounted) {
           let activePlan = null;
-          
+
           const localPlan = localStorage.getItem('ckh_active_in_progress_recommendation');
           if (localPlan) {
             try {
@@ -142,7 +173,7 @@ export default function Dashboard() {
             try {
               const list = JSON.parse(rawSaved);
               setSavedIds(new Set(list.map(i => i.id)));
-            } catch {}
+            } catch { }
           }
         }
       } catch (error) {
@@ -285,7 +316,7 @@ export default function Dashboard() {
     );
   }
 
-  const displayName = 
+  const displayName =
     (dashboardData?.username && dashboardData.username !== currentUser?.email?.split('@')[0] ? dashboardData.username : null) ||
     (dashboardData?.full_name && dashboardData.full_name !== currentUser?.email?.split('@')[0] ? dashboardData.full_name : null) ||
     currentUser?.user_metadata?.username ||
@@ -321,71 +352,115 @@ export default function Dashboard() {
     return hoursElapsed >= 24;
   };
 
-const SidebarContent = ({ onClose }) => {
-  const { t } = useLanguage();
+  const activeRecs = dashboardData?.active_recommendations || [];
+  const primaryGoal = dashboardData?.goal || dashboardData?.goals?.[0] || 'Audience Growth';
+  const primaryFocus = dashboardData?.focus || dashboardData?.topic || 'Content';
+  const savedCount = savedIds?.size || 0;
 
-  return (
-    <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
-      <div>
-        <div className="px-2 mb-10 flex justify-between items-center">
-          <img 
-            src={logo} 
-            alt="Logo" 
-            className="h-12 w-auto object-contain cursor-pointer" 
-            onClick={() => navigate('/dashboard')} 
-          />
-          <button
-            type="button"
-            onClick={onClose}
-            className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
-          >
-            <FiX size={24} />
-          </button>
+  let heroCardData = {
+    title: "",
+    desc: "",
+    buttonText: "",
+    targetRoute: "/ideas"
+  };
+
+  if (isPremium && activeRecs.length > 0) {
+    heroCardData = {
+      title: activeRecs[0].title || activeRecs[0].action,
+      desc: activeRecs[0].reason || activeRecs[0].description,
+      buttonText: t('viewRecommendation') || 'View Full Strategy',
+      targetRoute: '/recommendations'
+    };
+  } else {
+    if (savedCount === 0) {
+      heroCardData = {
+        title: `Curate Opportunities in ${primaryFocus}`,
+        desc: `You haven't bookmarked any active listings yet. Review current grants and competitions matching your focus to build project momentum.`,
+        buttonText: "Browse Opportunities",
+        targetRoute: "/opportunities"
+      };
+    } else if (savedCount > 0 && (!dashboardData?.active_in_progress_recommendation)) {
+      heroCardData = {
+        title: `Evaluate Your Next Idea for ${primaryGoal}`,
+        desc: `You have saved ${savedCount} item${savedCount > 1 ? 's' : ''}. Test and evaluate a new hook or concept angle before producing your next post.`,
+        buttonText: "Evaluate an Idea",
+        targetRoute: "/ideas"
+      };
+    } else {
+      heroCardData = {
+        title: `Daily Milestone: Refine Your Content Angle`,
+        desc: `Keep your production consistent with ${primaryFocus}. Compare two format angles to identify the highest retention approach.`,
+        buttonText: "Compare Ideas",
+        targetRoute: "/ideas"
+      };
+    }
+  }
+
+  const SidebarContent = ({ onClose }) => {
+    const { t } = useLanguage();
+
+    return (
+      <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
+        <div>
+          <div className="px-2 mb-10 flex justify-between items-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="h-12 w-auto object-contain cursor-pointer"
+              onClick={() => navigate('/dashboard')}
+            />
+            <button
+              type="button"
+              onClick={onClose}
+              className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
+            >
+              <FiX size={24} />
+            </button>
+          </div>
+
+          <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
+            <div className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-bold">
+              <FiGrid size={18} /> {t('dashboard')}
+            </div>
+            <div
+              onClick={() => navigate('/recommendations')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
+            >
+              <FiStar size={18} /> {t('recommendations')}
+            </div>
+            <div
+              onClick={() => navigate('/ideas')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
+            >
+              <FiEdit3 size={18} /> {t('ideas')}
+            </div>
+            <div
+              onClick={() => navigate('/opportunities')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
+            >
+              <FiCompass size={18} /> {t('opportunities')}
+            </div>
+            <div
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
+            >
+              <FiUser size={18} /> {t('profile')}
+            </div>
+          </nav>
         </div>
 
-        <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
-          <div className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-bold">
-            <FiGrid size={18} /> {t('dashboard')}
-          </div>
+        <div className="space-y-1 text-sm font-semibold text-[#64748B]">
+          <SettingsPopover onCloseParent={onClose} />
           <div
-            onClick={() => navigate('/recommendations')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
+            onClick={() => navigate('/support')}
+            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
           >
-            <FiStar size={18} /> {t('recommendations')}
+            <FiHelpCircle size={18} /> {t('support')}
           </div>
-          <div
-            onClick={() => navigate('/ideas')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
-          >
-            <FiEdit3 size={18} /> {t('ideas')}
-          </div>
-          <div
-            onClick={() => navigate('/opportunities')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
-          >
-            <FiCompass size={18} /> {t('opportunities')}
-          </div>
-          <div
-            onClick={() => navigate('/profile')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] rounded-xl cursor-pointer transition-colors"
-          >
-            <FiUser size={18} /> {t('profile')}
-          </div>
-        </nav>
-      </div>
-
-      <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-        <SettingsPopover onCloseParent={onClose} />
-        <div
-          onClick={() => navigate('/support')}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
-        >
-          <FiHelpCircle size={18} /> {t('support')}
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A] bg-white font-normal">
@@ -478,23 +553,34 @@ const SidebarContent = ({ onClose }) => {
             </div>
 
             {dashboardData?.active_recommendations?.length > 0 ? (
-              <div className="bg-[#F5F2FF] border border-[#E2E8F0] p-6 rounded-2xl flex gap-4 items-start shadow-2xs">
-                <div className="bg-[#FFFFFF] text-[#5352ED] p-2 rounded-xl mt-1 shadow-xs">
-                  <FiMessageSquare size={18} />
+              <div className="bg-[#F8F9FE] border border-[#E2E8F0] rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5 transition-all">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center text-[#5352ED] shrink-0 shadow-xs">
+                    <FiStar size={18} />
+                  </div>
+
+                  <div className="space-y-1">
+                    {heroCardData.type && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5352ED] bg-[#EEF2FF] px-2 py-0.5 rounded-full inline-block mb-1">
+                        {heroCardData.type}
+                      </span>
+                    )}
+                    <h3 className="font-bold text-base sm:text-lg text-[#0F172A]">
+                      {heroCardData.title}
+                    </h3>
+                    <p className="text-[#64748B] text-xs sm:text-sm leading-relaxed max-w-2xl">
+                      {heroCardData.desc}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold mb-2 text-[#0F172A]">{t('turnQuestionsTitle')}</h3>
-                  <p className="text-[#64748B] text-xs leading-relaxed mb-4">
-                    {t('turnQuestionsDesc')}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/recommendations')}
-                    className="bg-[#5352ED] text-[#FFFFFF] text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-[#4342D9] transition-colors shadow-xs cursor-pointer"
-                  >
-                    {t('viewRecommendation')}
-                  </button>
-                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(heroCardData.targetRoute)}
+                  className="bg-[#5352ED] text-[#FFFFFF] text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-[#4342D9] transition-colors shadow-xs cursor-pointer shrink-0 self-start sm:self-center"
+                >
+                  {heroCardData.buttonText}
+                </button>
               </div>
             ) : (
               <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-6 rounded-2xl flex gap-4 items-start shadow-2xs">
