@@ -186,12 +186,10 @@ export default function OpportunityDetails() {
     return (
         <div className="min-h-screen bg-[#FFFFFF] flex text-[#0F172A]">
 
-            {/* DESKTOP SIDEBAR */}
             <aside className="w-64 bg-[#F8F7FF] border-r border-[#F1F0FE] hidden md:block shrink-0 sticky top-0 h-screen">
                 <SidebarContent />
             </aside>
 
-            {/* MOBILE SIDEBAR MODAL */}
             {isMobileMenuOpen && (
                 <div className="fixed inset-0 z-50 flex md:hidden">
                     <div className="fixed inset-0 bg-black/30 backdrop-blur-xs" onClick={() => setIsMobileMenuOpen(false)} />
@@ -201,9 +199,7 @@ export default function OpportunityDetails() {
                 </div>
             )}
 
-            {/* MAIN CONTENT */}
             <main className="flex-1 min-w-0 bg-[#FFFFFF] flex flex-col">
-                {/* Mobile Header Toggle */}
                 <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#E2E8F0]">
                     <img src={logo} alt="Logo" className="h-8 w-auto" />
                     <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-[#64748B]">
@@ -213,7 +209,6 @@ export default function OpportunityDetails() {
 
                 <div className="p-6 md:p-10 space-y-6 max-w-[95%] mx-auto w-full">
 
-                    {/* Top Header Matching Dashboard */}
                     <div className="flex justify-between items-center">
                         <button
                             onClick={() => navigate('/opportunities')}
@@ -222,18 +217,17 @@ export default function OpportunityDetails() {
                             <FiArrowLeft size={16} /> Back to Opportunities
                         </button>
 
-                        <div className="flex items-center gap-4">
-                            {/* NotificationCenter without the wrapping button element */}
+                        // avatar profile and notification
+                        {/* <div className="flex items-center gap-4">
                             <div className="relative flex items-center">
                                 <NotificationCenter
                                     userId={userId}
                                     isPremium={isPremium}
                                     userNiche={userNiche}
                                 />
-                            </div>
+                            </div> */}
 
-                            {/* User Avatar */}
-                            {avatarUrl ? (
+                            {/* {avatarUrl ? (
                                 <img
                                     src={avatarUrl}
                                     alt="Profile"
@@ -243,11 +237,10 @@ export default function OpportunityDetails() {
                                 <div className="w-9 h-9 rounded-full bg-[#FFE4E6] text-[#E11D48] text-xs font-bold flex items-center justify-center border border-[#FECDD3]">
                                     {initials}
                                 </div>
-                            )}
-                        </div>
+                            )} */}
+                        {/* </div> */}
                     </div>
 
-                    {/* Top Badges */}
                     <div className="flex flex-wrap items-center gap-2 pt-2">
                         <span className="bg-[#FFF7ED] text-[#EA580C] text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider">
                             {opportunity.type}
@@ -257,18 +250,14 @@ export default function OpportunityDetails() {
                         </span>
                     </div>
 
-                    {/* Title */}
                     <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#0F172A]">
                         {opportunity.title}
                     </h1>
 
-                    {/* Two-Column Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pt-2">
 
-                        {/* LEFT COLUMN: Factual Information & AI Guidance */}
                         <div className="lg:col-span-8 space-y-5">
 
-                            {/* Factual Description Card */}
                             <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs">
                                 <h2 className="text-base font-bold mb-2 text-[#0F172A]">About This Opportunity</h2>
                                 <p className="text-xs md:text-sm text-[#475569] leading-relaxed">
@@ -312,7 +301,6 @@ export default function OpportunityDetails() {
                                 </div>
                             </div>
 
-                            {/* Why CKH Thinks It May Be Relevant (AI Generated) */}
                             <div className="bg-[#F8F7FF] rounded-2xl p-6 border border-[#ECEBFF] shadow-xs">
                                 <div className="flex items-center gap-2 mb-2">
                                     <FiZap className="text-[#5352ED]" size={18} />
@@ -344,7 +332,6 @@ export default function OpportunityDetails() {
                                 )}
                             </div>
 
-                            {/* Things to Consider (Trade-offs & Constraints) */}
                             <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs">
                                 <h2 className="text-sm md:text-base font-bold text-[#0F172A] mb-3">Things to Consider</h2>
                                 {loading ? (
@@ -363,7 +350,6 @@ export default function OpportunityDetails() {
 
                         </div>
 
-                        {/* RIGHT COLUMN: Actions & Categories */}
                         <div className="lg:col-span-4 space-y-4">
 
                             {/* Action Box */}

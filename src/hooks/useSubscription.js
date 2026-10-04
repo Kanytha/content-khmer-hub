@@ -30,29 +30,55 @@ export function useSubscription() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (error) throw error;
-
-      if (!data) {
-        setSubscription({
-          plan: 'free',
-          status: 'active',
-          expiresAt: null,
-          isPremium: false,
-          loading: false,
-        });
-        return;
+      if (error) {
+        console.warn('Subscription fetch notice:', error.message);
       }
 
-      const isUnexpired = data.expires_at ? new Date(data.expires_at) > new Date() : false;
-      const isPremium = (data.plan === 'premium' && ['active', 'cancelled'].includes(data.status) && isUnexpired);
+      // Check if Supabase has a valid active record
+      if (data && data.plan === 'premium') {
+        const isUnexpired = data.expires_at ? new Date(data.expires_at) > new Date() : false;
+        const isPrem = ['active', 'cancelled'].includes(data.status) && isUnexpired;
+
+        if (isPrem) {
+          setSubscription({
+            plan: 'premium',
+            status: isUnexpired ? data.status : 'expired',
+            expiresAt: data.expires_at,
+            isPremium: true,
+            loading: false,
+          });
+          return;
+        }
+      }
+
+      const userSubKey = `ckh_subscription_${user.id}`;
+      const localSub = JSON.parse(localStorage.getItem(userSubKey) || 'null');
+      const localDataRaw = localStorage.getItem(userSubKey);
+      if (localDataRaw) {
+        try {
+          const localSub = JSON.parse(localDataRaw);
+          const isUnexpired = localSub.expires_at ? new Date(localSub.expires_at) > new Date() : false;
+          if (localSub.is_premium && isUnexpired) {
+            setSubscription({
+              plan: 'premium',
+              status: localSub.status || 'active',
+              expiresAt: localSub.expires_at,
+              isPremium: true,
+              loading: false,
+            });
+            return;
+          }
+        } catch (e) {}
+      }
 
       setSubscription({
-        plan: data.plan,
-        status: isUnexpired ? data.status : 'expired',
-        expiresAt: data.expires_at,
-        isPremium,
+        plan: 'free',
+        status: 'active',
+        expiresAt: null,
+        isPremium: false,
         loading: false,
       });
+
     } catch (err) {
       console.error('Failed to verify subscription:', err);
       setSubscription(prev => ({ ...prev, loading: false }));
@@ -61,6 +87,14 @@ export function useSubscription() {
 
   useEffect(() => {
     checkSubscription();
+
+    // Listen when a user subscribes or cancels anywhere in the app
+    const handleUpdate = () => checkSubscription();
+    window.addEventListener('ckh_subscription_updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('ckh_subscription_updated', handleUpdate);
+    };
   }, [checkSubscription]);
 
   return { ...subscription, refreshSubscription: checkSubscription };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiBell, FiMessageSquare, FiCompass, FiZap } from 'react-icons/fi';
 import { supabase } from '../services/supabaseClient';
@@ -9,14 +9,14 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const getReadIdsFromStorage = () => {
+  const getReadIdsFromStorage = useCallback(() => {
     try {
       const stored = localStorage.getItem(`ckh_read_notifs_${userId}`);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch {
       return new Set();
     }
-  };
+  }, [userId]);
 
   const saveReadIdToStorage = (id) => {
     try {
@@ -38,118 +38,126 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
     }
   };
 
-  useEffect(() => {
+  const loadNotifications = useCallback(async () => {
     if (!userId) return;
+    setLoading(true);
+    try {
+      const readSet = getReadIdsFromStorage();
 
-    async function loadNotifications() {
-      setLoading(true);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      let localDynamicNotifs = [];
       try {
-        const readSet = getReadIdsFromStorage();
+        const rawLocal = 
+          localStorage.getItem(`ckh_notifications_${userId}`) || 
+          localStorage.getItem('ckh_notifications');
+        if (rawLocal) {
+          localDynamicNotifs = JSON.parse(rawLocal);
+        }
+      } catch (err) {
+        console.warn("Could not parse local notifications:", err);
+      }
 
-        // 1. Fetch real notifications from Supabase
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(25);
+      let list = [];
 
-        let list = [];
-
-        if (!error && data && data.length > 0) {
-          list = data.map(item => ({
+      if (!error && data && data.length > 0) {
+        list = [
+          ...localDynamicNotifs,
+          ...data.map(item => ({
             ...item,
             is_read: item.is_read || readSet.has(item.id)
-          }));
-        } else {
-          // 2. Real starter creation timestamps stored once per user
-          const storageKey = `ckh_starter_dates_${userId}`;
-          let starterDates = {};
-          try {
-            starterDates = JSON.parse(localStorage.getItem(storageKey)) || {};
-          } catch {
-            starterDates = {};
-          }
-
-          const now = Date.now();
-
-          // Brand new opportunity just received now!
-          if (!starterDates['starter-opp']) {
-            starterDates['starter-opp'] = new Date(now).toISOString();
-          }
-          // YouTube intelligence just after connecting
-          if (!starterDates['starter-yt']) {
-            starterDates['starter-yt'] = new Date(now - 10 * 60 * 1000).toISOString(); // 10 mins ago
-          }
-          // Reflection from 2 days ago
-          if (!starterDates['starter-1']) {
-            starterDates['starter-1'] = new Date(now - 48 * 60 * 60 * 1000).toISOString(); // 2 days ago
-          }
-          // Welcome note from when they joined
-          if (!starterDates['starter-welcome']) {
-            starterDates['starter-welcome'] = new Date(now - 72 * 60 * 60 * 1000).toISOString(); // 3 days ago
-          }
-
-          localStorage.setItem(storageKey, JSON.stringify(starterDates));
-
-          list = [
-            // TOP: Brand new opportunity you just unlocked/added!
-            {
-              id: 'starter-opp',
-              user_id: userId,
-              title: `${userNiche || 'Content'} Opportunity Available`,
-              message: 'A new opportunity specifically matches your audience style.',
-              type: 'opportunity_match',
-              action_link: '/opportunity-details?spotlight=true',
-              is_read: readSet.has('starter-opp'),
-              created_at: starterDates['starter-opp']
-            },
-            ...(isPremium ? [{
-              id: 'starter-yt',
-              user_id: userId,
-              title: 'New Audience Intelligence',
-              message: 'AI analyzed your latest comments. See viewer sentiment and questions.',
-              type: 'youtube_ai',
-              action_link: '/recommendations',
-              is_read: readSet.has('starter-yt'),
-              created_at: starterDates['starter-yt']
-            }] : []),
-            // Old reflection follow-up from 2 days ago (now correctly below!)
-            {
-              id: 'starter-1',
-              user_id: userId,
-              title: 'Reflection follow-up',
-              message: 'Tell us how your recent content experience went.',
-              type: 'reflection',
-              action_link: '/reflection',
-              is_read: readSet.has('starter-1'),
-              created_at: starterDates['starter-1']
-            },
-            {
-              id: 'starter-welcome',
-              user_id: userId,
-              title: 'Welcome to Content Khmer Hub',
-              message: 'Set up your preferences to receive matched content ideas.',
-              type: 'system',
-              action_link: '/dashboard',
-              is_read: true,
-              created_at: starterDates['starter-welcome']
-            }
-          ];
+          }))
+        ];
+      } else {
+        // Starter creation timestamps stored once per user
+        const storageKey = `ckh_starter_dates_${userId}`;
+        let starterDates = {};
+        try {
+          starterDates = JSON.parse(localStorage.getItem(storageKey)) || {};
+        } catch {
+          starterDates = {};
         }
 
-        // Strict sorting: Newest created_at at the very TOP
-        list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setNotifications(list);
-      } catch (err) {
-        console.error("Error loading notifications:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
+        const now = Date.now();
 
+        if (!starterDates['starter-opp']) {
+          starterDates['starter-opp'] = new Date(now).toISOString();
+        }
+        if (!starterDates['starter-yt']) {
+          starterDates['starter-yt'] = new Date(now - 10 * 60 * 1000).toISOString();
+        }
+        if (!starterDates['starter-welcome']) {
+          starterDates['starter-welcome'] = new Date(now - 72 * 60 * 60 * 1000).toISOString();
+        }
+
+        localStorage.setItem(storageKey, JSON.stringify(starterDates));
+
+        list = [
+          ...localDynamicNotifs,
+          {
+            id: 'starter-opp',
+            user_id: userId,
+            title: `${userNiche || 'Content'} Opportunity Available`,
+            message: 'A new opportunity specifically matches your audience style.',
+            type: 'opportunity_match',
+            action_link: '/opportunity-details?spotlight=true',
+            is_read: readSet.has('starter-opp'),
+            created_at: starterDates['starter-opp']
+          },
+          ...(isPremium ? [{
+            id: 'starter-yt',
+            user_id: userId,
+            title: 'New Audience Intelligence',
+            message: 'AI analyzed your latest comments. See viewer sentiment and questions.',
+            type: 'youtube_ai',
+            action_link: '/recommendations',
+            is_read: readSet.has('starter-yt'),
+            created_at: starterDates['starter-yt']
+          }] : []),
+          {
+            id: 'starter-welcome',
+            user_id: userId,
+            title: 'Welcome to Content Khmer Hub',
+            message: 'Set up your preferences to receive matched content ideas.',
+            type: 'system',
+            action_link: '/dashboard',
+            is_read: true,
+            created_at: starterDates['starter-welcome']
+          }
+        ];
+      }
+
+      list = list.map(item => ({
+        ...item,
+        is_read: item.is_read || readSet.has(item.id)
+      }));
+
+      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setNotifications(list);
+    } catch (err) {
+      console.error("Error loading notifications:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, isPremium, userNiche, getReadIdsFromStorage]);
+
+  useEffect(() => {
     loadNotifications();
-  }, [userId, isPremium, userNiche]);
+
+    const handleNewNotif = () => loadNotifications();
+    window.addEventListener('ckh_new_notification', handleNewNotif);
+    window.addEventListener('storage', handleNewNotif);
+
+    return () => {
+      window.removeEventListener('ckh_new_notification', handleNewNotif);
+      window.removeEventListener('storage', handleNewNotif);
+    };
+  }, [loadNotifications]);
 
   const hasUnread = notifications.some(n => !n.is_read);
 
@@ -169,7 +177,6 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
   };
 
   const handleNotificationClick = async (notif) => {
-    // 1. Mark as read
     if (!notif.is_read) {
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
       saveReadIdToStorage(notif.id);
@@ -186,7 +193,6 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
 
     setIsOpen(false);
 
-    // 2. Smart handling for Audience Intelligence (Free vs Premium)
     if (notif.type === 'youtube_ai') {
       if (isPremium) {
         navigate('/recommendations');
@@ -196,7 +202,6 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
       return;
     }
 
-    // 3. All other notifications follow their normal action_link
     if (notif.action_link) {
       navigate(notif.action_link);
     } else {
@@ -204,12 +209,10 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
     }
   };
 
-  // Helper date group checkers
   const getDayBucket = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
     
-    // Normalize to midnight for accurate day comparison
     const targetMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const oneDayMs = 24 * 60 * 60 * 1000;
@@ -307,7 +310,6 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
               </div>
             ) : (
               <>
-                {/* 1. TODAY SECTION */}
                 {todayNotifs.length > 0 && (
                   <div className="p-4">
                     <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">
@@ -319,7 +321,6 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
                   </div>
                 )}
 
-                {/* 2. YESTERDAY SECTION */}
                 {yesterdayNotifs.length > 0 && (
                   <div className="p-4 bg-gray-50/50">
                     <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">
@@ -331,7 +332,6 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
                   </div>
                 )}
 
-                {/* 3. EARLIER SECTION */}
                 {earlierNotifs.length > 0 && (
                   <div className="p-4 bg-gray-50/80">
                     <p className="text-[10px] font-bold text-[#94A3B8] tracking-wider uppercase mb-3">

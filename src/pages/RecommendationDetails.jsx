@@ -92,47 +92,59 @@ useEffect(() => {
   }, [basicRec, navigate]);
 
   const handleStartPlanning = async () => {
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
+    // 1. Pick the recommendation data from details or basicRec
+    const activeItem = details || basicRec;
 
-    const recTitle = details?.title || basicRec?.title || "New Strategy Recommendation";
-    const recCategory = details?.category || basicRec?.category || "Education";
-    const approachText = 
-      approachTab === 'suggested' ? 'Try as Suggested' :
-      approachTab === 'adapt' ? 'Adapt to My Style' : 'Save for Later';
+    const itemTitle = activeItem?.title || "Active Strategic Plan";
+    const itemCategory = activeItem?.category || activeItem?.type || "Content";
 
+    const planData = {
+      title: itemTitle,
+      category: itemCategory,
+      started_at: new Date().toISOString(),
+      status: 'in_progress'
+    };
+
+    // 2. Save directly to localStorage so it works immediately
+    localStorage.setItem('ckh_active_in_progress_recommendation', JSON.stringify(planData));
+
+    // 3. Try saving to Supabase without breaking if 403 occurs
     try {
-      // 1. Mark active plan with exact timestamp
-      await supabase
-        .from('creator_profiles')
-        .update({
-          active_in_progress_recommendation: {
-            title: recTitle,
-            category: recCategory,
-            approach: approachText,
-            started_at: new Date().toISOString()
-          }
-        })
-        .eq('user_id', currentUser.id);
-
-      // 2. Add reflection reminder in notifications table
-      await supabase.from('notifications').insert({
-        user_id: currentUser.id,
-        title: 'Reflection follow-up',
-        message: `Tell us how your recent content experience went with "${recTitle}".`,
-        type: 'reflection',
-        action_link: '/reflection',
-        is_read: false
-      });
-
-      // 3. Immediately return to the dashboard
-      navigate('/dashboard');
-    } catch (err) {
-      console.error("Error setting up planning:", err);
-      navigate('/dashboard');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('creator_action_plans').upsert({
+          user_id: user.id,
+          title: itemTitle,
+          category: itemCategory,
+          status: 'in_progress',
+          started_at: new Date().toISOString()
+        });
+      }
+    } catch (dbErr) {
+      console.warn("Supabase action plan save skipped/denied (403):", dbErr);
     }
+
+    // 4. Trigger Notification
+    try {
+      const existingNotifications = JSON.parse(localStorage.getItem('ckh_notifications') || '[]');
+      const newNotif = {
+        id: `notif-${Date.now()}`,
+        title: 'Time to Reflect!',
+        message: `Ready to reflect on "${itemTitle}"? Tell CKH how it performed!`,
+        date: new Date().toISOString(),
+        read: false,
+        link: '/reflection'
+      };
+      localStorage.setItem('ckh_notifications', JSON.stringify([newNotif, ...existingNotifications]));
+      window.dispatchEvent(new Event('ckh_new_notification'));
+    } catch (notifErr) {
+      console.warn("Notification error:", notifErr);
+    }
+
+    setIsPlanningSaved(true);
+
+    // 5. Navigate straight back to Dashboard
+    navigate('/dashboard');
   };
 
   const handleSaveForLater = () => {

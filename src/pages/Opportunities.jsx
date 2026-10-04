@@ -42,63 +42,77 @@ export default function Opportunities() {
 
   useEffect(() => {
     const loadOpportunities = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-        if (user) {
-          setUserId(user.id);
+      if (user) {
+        setUserId(user.id);
 
+        const { data: profile } = await supabase
+          .from('creator_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-          const { data: profile } = await supabase
-            .from('creator_profiles')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (profile) {
-            if (profile.goal || profile.goals) setCurrentGoal(profile.goal || profile.goals[0]);
-            if (profile.focus || profile.topic) setCreatorTopic(profile.focus || profile.topic);
-          }
-
-          const resolvedName =
-            profile?.username ||
-            profile?.full_name ||
-            user.user_metadata?.username ||
-            user.user_metadata?.full_name ||
-            user.email?.split('@')[0] ||
-            'Creator';
-
-          const parts = resolvedName.trim().split(/\s+/);
-          const computedInitials = parts.length > 1 
-            ? (parts[0][0] + parts[1][0]).toUpperCase() 
-            : resolvedName.slice(0, 2).toUpperCase();
-          setInitials(computedInitials);
-
-          const customAvatar = profile?.avatar_url || localStorage.getItem('user_avatar_url');
-          setAvatarUrl(customAvatar || null);
-
-          const rawSaved = localStorage.getItem(`ckh_saved_items_${user.id}`);
-          if (rawSaved) {
-            try {
-              const list = JSON.parse(rawSaved);
-              setSavedIds(new Set(list.map(i => i.id)));
-            } catch {}
-          }
+        if (profile) {
+          if (profile.goal || profile.goals) setCurrentGoal(profile.goal || profile.goals[0]);
+          if (profile.focus || profile.topic) setCreatorTopic(profile.focus || profile.topic);
         }
 
-        const { data: opps } = await supabase
-          .from('opportunities')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const resolvedName =
+          profile?.username ||
+          profile?.full_name ||
+          user.user_metadata?.username ||
+          user.user_metadata?.full_name ||
+          user.email?.split('@')[0] ||
+          'Creator';
 
-        setOpportunities(opps || []);
-      } catch (err) {
-        console.error("Failed to load opportunities:", err);
+        const parts = resolvedName.trim().split(/\s+/);
+        const computedInitials = parts.length > 1 
+          ? (parts[0][0] + parts[1][0]).toUpperCase() 
+          : resolvedName.slice(0, 2).toUpperCase();
+        setInitials(computedInitials);
+
+        let resolvedAvatar = profile?.avatar_url || localStorage.getItem(`user_avatar_url_${user.id}`);
+        const googlePhoto = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+
+        if (!resolvedAvatar && googlePhoto) {
+          resolvedAvatar = googlePhoto;
+          supabase
+            .from('creator_profiles')
+            .update({ avatar_url: googlePhoto })
+            .eq('user_id', user.id)
+            .then(() => {});
+        }
+
+        const validAvatar = (typeof resolvedAvatar === 'string' && resolvedAvatar.trim().length > 5)
+          ? resolvedAvatar.trim()
+          : null;
+
+        setAvatarUrl(validAvatar);
+
+        const rawSaved = localStorage.getItem(`ckh_saved_items_${user.id}`);
+        if (rawSaved) {
+          try {
+            const list = JSON.parse(rawSaved);
+            setSavedIds(new Set(list.map(i => i.id)));
+          } catch {}
+        }
       }
-    };
 
-    loadOpportunities();
-  }, []);
+      const { data: opps } = await supabase
+        .from('opportunities')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      setOpportunities(opps || []);
+    } catch (err) {
+      console.error("Failed to load opportunities:", err);
+    }
+  };
+
+  loadOpportunities();
+}, []);
 
   const handleSaveContext = async ({ goal, focus, contextPeriod }) => {
     if (focus) setCreatorTopic(focus);

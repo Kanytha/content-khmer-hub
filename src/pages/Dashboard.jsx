@@ -108,7 +108,34 @@ export default function Dashboard() {
         }
 
         if (isMounted) {
-          setDashboardData(data);
+          let activePlan = null;
+          
+          const localPlan = localStorage.getItem('ckh_active_in_progress_recommendation');
+          if (localPlan) {
+            try {
+              activePlan = JSON.parse(localPlan);
+            } catch (e) {
+              console.warn("Failed to parse local active plan:", e);
+            }
+          }
+
+          if (!activePlan) {
+            const { data: dbPlan } = await supabase
+              .from('creator_action_plans')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('status', 'in_progress')
+              .order('started_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (dbPlan) activePlan = dbPlan;
+          }
+
+          setDashboardData({
+            ...data,
+            active_in_progress_recommendation: activePlan
+          });
 
           const rawSaved = localStorage.getItem(`ckh_saved_items_${user.id}`);
           if (rawSaved) {
@@ -275,12 +302,21 @@ export default function Dashboard() {
   // logic of reflection
   const IS_TESTING_MODE = true;
 
+  // const isReflectionReady = () => {
+  //   const active = dashboardData?.active_in_progress_recommendation;
+  //   if (!active?.started_at) return false;
+  //   if (IS_TESTING_MODE) return true;
+
+  //   const startedTime = new Date(active.started_at).getTime();
+  //   const hoursElapsed = (Date.now() - startedTime) / (1000 * 60 * 60);
+  //   return hoursElapsed >= 24;
+  // };
   const isReflectionReady = () => {
     const active = dashboardData?.active_in_progress_recommendation;
-    if (!active?.started_at) return false;
+    if (!active) return false;
     if (IS_TESTING_MODE) return true;
 
-    const startedTime = new Date(active.started_at).getTime();
+    const startedTime = new Date(active.started_at || Date.now()).getTime();
     const hoursElapsed = (Date.now() - startedTime) / (1000 * 60 * 60);
     return hoursElapsed >= 24;
   };

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { useSubscription } from '../hooks/useSubscription';
+import { useLanguage } from '../context/LanguageContext';
 import { cancelSubscription, resumeSubscription, disconnectYouTubeChannel } from '../services/subscriptionService';
 import UpgradeModal from '../components/UpgradeModal';
+import CancelAutoRenewModal from '../components/CancelAutoRenewModal';
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import SettingsPopover from "../components/SettingsPopover";
 import {
@@ -18,9 +20,12 @@ import { LuLayoutGrid, LuTrendingUp, LuSmartphone, LuHash } from 'react-icons/lu
 
 export default function ProfilePage() {
     const navigate = useNavigate();
+    const { lang } = useLanguage();
     const { isPremium, status, expiresAt, refreshSubscription } = useSubscription();
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
+    const [currentUser, setCurrentUser] = useState(null);
+    const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [username, setUsername] = useState('Creator');
     const [initials, setInitials] = useState('CR');
     const [avatarUrl, setAvatarUrl] = useState(null);
@@ -46,6 +51,8 @@ export default function ProfilePage() {
                     navigate('/');
                     return;
                 }
+
+                if (isMounted) setCurrentUser(authUser);
 
                 const meta = authUser.user_metadata || {};
 
@@ -85,9 +92,18 @@ export default function ProfilePage() {
 
                 if (isMounted) setInitials(derivedInitials);
 
-                const customAvatar = dbProfile?.avatar_url || localStorage.getItem('user_avatar_url');
+                const rawAvatar =
+                    dbProfile?.avatar_url ||
+                    meta.avatar_url ||
+                    meta.picture ||
+                    localStorage.getItem(`user_avatar_url_${authUser.id}`);
+
+                const validAvatar = (typeof rawAvatar === 'string' && rawAvatar.trim().length > 5)
+                    ? rawAvatar.trim()
+                    : null;
+
                 if (isMounted) {
-                    setAvatarUrl(customAvatar || null);
+                    setAvatarUrl(validAvatar);
                 }
                 const obData = onboardingRes.data || {};
                 const userIdeas = ideasRes.data || [];
@@ -274,6 +290,27 @@ export default function ProfilePage() {
     }, [navigate]);
 
     const handleLogout = async () => {
+        const keysToRemove = [
+            'user_avatar_url',
+            'ckh_is_premium',
+            'onboarding',
+            'onboardingData',
+            'creator_onboarding',
+            'ckh_notifications',
+            'ckh_yt_token'
+        ];
+
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+
+        Object.keys(localStorage).forEach(k => {
+            if (
+                k.startsWith('ckh_') ||
+                k.startsWith('onboarding_') ||
+                k.startsWith('user_')
+            ) {
+                localStorage.removeItem(k);
+            }
+        });
         await supabase.auth.signOut();
         navigate('/');
     };
@@ -286,6 +323,27 @@ export default function ProfilePage() {
             return obs;
         }));
     };
+
+    const handleExecuteCancel = async () => {
+  await cancelSubscription();
+
+  const subKey = `ckh_subscription_${currentUser?.id || 'demo'}`;
+  try {
+    const currentSub = JSON.parse(localStorage.getItem(subKey) || '{}');
+    const updatedSub = { ...currentSub, auto_renew: false };
+    localStorage.setItem(subKey, JSON.stringify(updatedSub));
+  } catch (e) {}
+
+  if (currentUser?.id) {
+    await supabase
+      .from('creator_profiles')
+      .update({ subscription_renews_at: null })
+      .eq('user_id', currentUser.id);
+  }
+
+  refreshSubscription();
+  window.dispatchEvent(new Event('ckh_subscription_updated'));
+};
 
     const SidebarContent = ({ onClose }) => (
         <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
@@ -381,6 +439,7 @@ export default function ProfilePage() {
                                 <img
                                     src={avatarUrl}
                                     alt={username}
+                                    onError={() => setAvatarUrl(null)}
                                     className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border border-[#E2E8F0] shadow-xs"
                                 />
                             ) : (
@@ -407,7 +466,7 @@ export default function ProfilePage() {
                         <button
                             type="button"
                             onClick={() => navigate('/account')}
-                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-[#D1D5DB] text-xs font-normal text-[#1E293B] hover:bg-gray-50 transition-colors self-start sm:self-center shadow-2xs"
+                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-[#D1D5DB] text-xs font-normal text-[#1E293B] hover:bg-gray-50 transition-colors self-start sm:self-center shadow-2xs cursor-pointer"
                         >
                             <FiEdit2 size={13} /> Edit Profile
                         </button>
@@ -497,14 +556,14 @@ export default function ProfilePage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => navigate('/edit-profile')}
-                                                    className="text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+                                                    className="text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
                                                 >
                                                     Update
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => toggleObservationAccuracy(obs.id)}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-normal border transition-colors ${obs.verified
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-normal border transition-colors cursor-pointer ${obs.verified
                                                         ? 'border-[#C7D2FE] bg-[#EEF2FF] text-[#4338CA]'
                                                         : 'border-[#D1D5DB] text-[#64748B] hover:bg-gray-50'
                                                         }`}
@@ -546,7 +605,7 @@ export default function ProfilePage() {
                                                 : 'bg-[#F0FDF4] border-[#DCFCE7] text-[#15803D]'
                                         }`}>
                                             <div className="flex items-center gap-1.5 text-xs font-semibold">
-                                                <FiCheckCircle size={14} />
+                                                {/* <FiCheckCircle size={14} /> */}
                                                 <span>
                                                     {status === 'cancelled' 
                                                         ? 'Subscription Cancelled (No Future Charges)' 
@@ -586,21 +645,16 @@ export default function ProfilePage() {
                                                     }}
                                                     className="w-full py-2.5 px-3 bg-[#5352ED] hover:bg-[#4342D9] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                                                 >
-                                                    Keep My Subscription (Resume Auto-Renew)
+                                                    Resume Auto-Renew
                                                 </button>
                                             ) : (
                                                 <button
-                                                    type="button"
-                                                    onClick={async () => {
-                                                        if (window.confirm('Cancel auto-renew? You will NOT be charged next month, and you keep all premium features until your current 30-day period ends.')) {
-                                                            await cancelSubscription();
-                                                            refreshSubscription();
-                                                        }
-                                                    }}
-                                                    className="w-full py-2 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-xs font-medium transition-colors cursor-pointer"
-                                                >
-                                                    Cancel Auto-Renewal
-                                                </button>
+  type="button"
+  onClick={() => setIsCancelModalOpen(true)}
+  className="w-full py-2 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-xs font-medium transition-colors cursor-pointer"
+>
+  Cancel Auto-Renewal
+</button>
                                             )}
 
                                             <button
@@ -624,7 +678,7 @@ export default function ProfilePage() {
                                                 <span className="text-xl font-bold text-[#0F172A]">$2.99</span>
                                                 <span className="text-xs text-[#64748B]"> / month</span>
                                             </div>
-                                            <span className="text-[11px] text-[#5352ED] font-medium">ABA PayWay</span>
+                                            <span className="text-[11px] text-[#5352ED] font-medium">Bakong / Card</span>
                                         </div>
                                         <p className="text-xs text-[#64748B] leading-relaxed">
                                             Unlock real-time YouTube intelligence, audience signals, and title analysis.
@@ -703,6 +757,7 @@ export default function ProfilePage() {
 
                                 <div className="pt-4 border-t border-gray-100">
                                     <button
+                                        type="button"
                                         onClick={handleLogout}
                                         className="inline-flex items-center gap-2 text-xs text-red-600 hover:text-red-700 transition-colors font-medium cursor-pointer"
                                     >
@@ -718,11 +773,22 @@ export default function ProfilePage() {
                 </div>
             </div>
 
+            <CancelAutoRenewModal
+  isOpen={isCancelModalOpen}
+  onClose={() => setIsCancelModalOpen(false)}
+  onConfirm={handleExecuteCancel}
+  expiresAt={expiresAt}
+/>
+
+            {/* Upgrade & Payment Modal */}
             <UpgradeModal
                 isOpen={isUpgradeModalOpen}
                 onClose={() => setIsUpgradeModalOpen(false)}
-                onSuccess={() => {
+                user={currentUser}
+                planPrice="$2.99"
+                onPaymentSuccess={() => {
                     refreshSubscription();
+                    window.location.reload();
                 }}
             />
         </div>

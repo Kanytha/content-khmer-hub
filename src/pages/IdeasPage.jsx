@@ -62,8 +62,23 @@ export default function IdeasPage() {
         : resolvedName.slice(0, 2).toUpperCase();
       setInitials(computedInitials);
 
-      const customAvatar = profile?.avatar_url || localStorage.getItem('user_avatar_url');
-      setAvatarUrl(customAvatar || null);
+      let resolvedAvatar = profile?.avatar_url || localStorage.getItem(`user_avatar_url_${user.id}`);
+      const googlePhoto = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+
+      if (!resolvedAvatar && googlePhoto) {
+        resolvedAvatar = googlePhoto;
+        supabase
+          .from('creator_profiles')
+          .update({ avatar_url: googlePhoto })
+          .eq('user_id', user.id)
+          .then(() => {});
+      }
+
+      const validAvatar = (typeof resolvedAvatar === 'string' && resolvedAvatar.trim().length > 5)
+        ? resolvedAvatar.trim()
+        : null;
+
+      setAvatarUrl(validAvatar);
 
       const ctx = await getCreatorContext(user.id);
       setContext(ctx);
