@@ -5,6 +5,7 @@ import { isItemSaved, toggleSaveItem } from '../services/savedService';
 import { useSubscription } from '../hooks/useSubscription';
 import NotificationCenter from '../components/NotificationCenter';
 import EditContextModal from "../components/EditContextModal";
+import { useLanguage } from '../context/LanguageContext';
 import SettingsPopover from "../components/SettingsPopover";
 import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
@@ -39,6 +40,8 @@ export default function Opportunities() {
 
   const { isPremium } = useSubscription();
   const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadOpportunities = async () => {
@@ -239,69 +242,76 @@ const handleToggleAlertPref = async (type) => {
     return matchesTopic && days !== null && days >= 0 && days <= 35;
   });
 
-  const SidebarContent = () => (
-    <div className="flex flex-col justify-between h-full py-8 px-4 bg-[#F8F7FF]">
-      <div>
-        <div className="px-2 mb-10 flex justify-between items-center">
-          <img 
-            src={logo} 
-            alt="Logo" 
-            className="h-12 w-auto object-contain cursor-pointer" 
-            onClick={() => navigate('/dashboard')} 
-          />
-          <button 
-            type="button"
-            onClick={() => setIsMobileMenuOpen(false)} 
-            className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
-          >
-            <FiX size={24} />
-          </button>
-        </div>
-        
-        <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
-          <div 
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
-          >
-            <FiGrid size={18} /> Dashboard
-          </div>
-          <div 
-            onClick={() => navigate('/recommendations')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
-          >
-            <FiStar size={18} /> Recommendations
-          </div>
-          <div
-            onClick={() => navigate('/ideas')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-sm rounded-xl cursor-pointer transition-all duration-300 font-semibold"
-          >
-            <FiEdit3 size={18} /> Ideas
-          </div>
-          <div
-            className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-semibold"
-          >
-            <FiCompass size={18} /> Opportunities
-          </div>
-          <div 
-            onClick={() => navigate('/profile')}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
-          >
-            <FiUser size={18} /> Profile
-          </div>
-        </nav>
-      </div>
+  const SidebarContent = ({ onClose }) => {
+    const handleNav = (path) => {
+      onClose?.();
+      navigate(path);
+    };
 
-      <div className="space-y-1 text-sm font-semibold text-[#64748B]">
-        <SettingsPopover />
-        <div
-          onClick={() => navigate('/support')}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
-        >
-          <FiHelpCircle size={18} /> Support
+    return (
+      <div className="flex flex-col justify-between h-full py-8 px-4 bg-[#F8F7FF]">
+        <div>
+          <div className="px-2 mb-10 flex justify-between items-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="h-12 w-auto object-contain cursor-pointer"
+              onClick={() => handleNav('/dashboard')}
+            />
+            <button
+              type="button"
+              onClick={onClose}
+              className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
+            >
+              <FiX size={24} />
+            </button>
+          </div>
+
+          <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
+            <div
+              onClick={() => handleNav('/dashboard')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
+            >
+              <FiGrid size={18} /> {t('dashboard')}
+            </div>
+            <div
+              onClick={() => handleNav('/recommendations')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
+            >
+              <FiStar size={18} /> {t('recommendations')}
+            </div>
+            <div
+              onClick={() => handleNav('/ideas')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-sm rounded-xl cursor-pointer transition-all duration-300 font-semibold"
+            >
+              <FiEdit3 size={18} /> {t('ideas')}
+            </div>
+            <div
+              className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs font-semibold"
+            >
+              <FiCompass size={18} /> {t('opportunities')}
+            </div>
+            <div
+              onClick={() => handleNav('/profile')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
+            >
+              <FiUser size={18} /> {t('profile')}
+            </div>
+          </nav>
+        </div>
+
+        <div className="space-y-1 text-sm font-semibold text-[#64748B]">
+          <SettingsPopover onCloseParent={onClose} />
+          <div
+            onClick={() => handleNav('/support')}
+            className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+          >
+            <FiHelpCircle size={18} /> {t('support')}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#FFFFFF] flex text-[#0F172A]">
@@ -367,40 +377,43 @@ const handleToggleAlertPref = async (type) => {
           </div>
 
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Opportunities</h1>
-            <p className="text-[#64748B] text-sm mt-1">
-              Discover programs, events, collaborations, and other possibilities happening outside CKH that may be relevant to your creator journey.
+            <h1 className="text-3xl font-extrabold tracking-tight">{t('oppTitle')}</h1>
+            <p className="text-[#64748B] text-sm mt-1 leading-relaxed">
+              {t('oppSubtitle')}
             </p>
           </div>
 
           <div className="bg-[#EEF2FF] border border-[#E0E7FF] rounded-xl px-5 py-3.5 flex items-center justify-between">
             <div className="text-xs text-[#4338CA] font-medium">
-              <span>Relevant to your current focus: <strong>{currentGoal}</strong> ({creatorTopic})</span>
+              <span>
+                {t('relevantFocusPrefix')}{' '}
+                <strong>{currentGoal}</strong> ({creatorTopic})
+              </span>
             </div>
             <button
               type="button"
               onClick={() => setIsContextModalOpen(true)}
               className="text-xs text-[#5352ED] font-semibold hover:underline cursor-pointer"
             >
-              Change focus
+              {t('changeFocus')}
             </button>
           </div>
 
           {spotlightEvent && (
             <div>
               <div className="flex items-center gap-2 text-xs font-bold text-[#0F172A] mb-3 uppercase tracking-wider">
-                UPCOMING EVENT
+                {t('upcomingEventHeader')}
               </div>
 
               <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 relative max-w-xl shadow-xs">
                 <div className="absolute top-0 right-0 bg-[#DC2626] text-white text-[11px] font-semibold px-3 py-1 rounded-bl-xl rounded-tr-2xl">
-                  Deadline in {getDaysRemaining(spotlightEvent.deadline)} days
+                  {t('deadlinePrefix')} {getDaysRemaining(spotlightEvent.deadline)} {t('daysSuffix')}
                 </div>
 
                 <div className="flex items-start gap-4">
                   <div>
                     <div className="flex items-center gap-1.5 text-xs text-[#64748B]">
-                      <span>Source: {spotlightEvent.organizer}</span>
+                      <span>{t('sourcePrefix')} {spotlightEvent.organizer}</span>
                     </div>
                     <h3 className="text-base font-bold mt-1 text-[#0F172A]">{spotlightEvent.title}</h3>
                   </div>
@@ -408,19 +421,19 @@ const handleToggleAlertPref = async (type) => {
 
                 <div className="grid grid-cols-2 gap-4 my-5 text-xs">
                   <div>
-                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">Type</span>
+                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">{t('typeLabel')}</span>
                     <p className="font-semibold text-[#0F172A]">{spotlightEvent.type}</p>
                   </div>
                   <div>
-                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">Area</span>
+                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">{t('areaLabel')}</span>
                     <p className="font-semibold text-[#0F172A]">{spotlightEvent.topics?.join(', ')}</p>
                   </div>
                   <div>
-                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">Location</span>
+                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">{t('locationLabel')}</span>
                     <p className="font-semibold text-[#0F172A]">{spotlightEvent.location}</p>
                   </div>
                   <div>
-                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">Registration Deadline</span>
+                    <span className="text-[#94A3B8] font-medium uppercase text-[10px]">{t('deadlineLabel')}</span>
                     <p className="font-semibold text-[#DC2626]">{spotlightEvent.deadline}</p>
                   </div>
                 </div>
@@ -430,7 +443,7 @@ const handleToggleAlertPref = async (type) => {
                   onClick={() => navigate('/opportunity-details', { state: { opportunity: spotlightEvent } })}
                   className="w-full bg-[#F8FAFC] border border-[#E2E8F0] text-[#0F172A] py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors"
                 >
-                  View Details
+                  {t('viewDetailsBtn')}
                 </button>
               </div>
             </div>
@@ -441,15 +454,15 @@ const handleToggleAlertPref = async (type) => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <div>
               <h3 className="text-sm font-bold text-[#0F172A]">
-                Notification Preferences
+                {t('notifPrefTitle')}
               </h3>
               <p className="text-xs text-[#64748B]">
-                Select the types of opportunities you want to receive alerts for in your notification bell.
+                {t('notifPrefSubtitle')}
               </p>
             </div>
             {showPrefSavedBadge && (
               <span className="text-[11px] font-semibold text-[#10B981] bg-[#ECFDF5] border border-[#A7F3D0] px-3 py-1 rounded-full w-fit animate-fade-in">
-                ✓ Preferences saved
+                ✓ {t('savedBtn')}
               </span>
             )}
           </div>
@@ -457,6 +470,17 @@ const handleToggleAlertPref = async (type) => {
           <div className="flex flex-wrap gap-2 pt-1">
             {AVAILABLE_ALERT_TYPES.map((type) => {
               const isSelected = alertPrefs.includes(type);
+              
+              // Map dynamic chip labels to translations
+              const typeTranslationKey = 
+                type === 'Scholarships' ? 'prefScholarships' :
+                type === 'Grants' ? 'prefGrants' :
+                type === 'Brand Collaborations' ? 'prefBrandCollabs' :
+                type === 'Workshops & Events' ? 'prefWorkshops' :
+                type === 'Contests & Awards' ? 'prefContests' : null;
+
+              const label = typeTranslationKey ? t(typeTranslationKey) : type;
+
               return (
                 <button
                   key={type}
@@ -469,7 +493,7 @@ const handleToggleAlertPref = async (type) => {
                   }`}
                 >
                   <span>{isSelected ? '✓' : '+'}</span>
-                  <span>{type}</span>
+                  <span>{label}</span>
                 </button>
               );
             })}
@@ -478,23 +502,32 @@ const handleToggleAlertPref = async (type) => {
 
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <h2 className="text-lg font-bold">Explore Opportunities</h2>
+              <h2 className="text-lg font-bold">{t('exploreOpportunitiesTitle')}</h2>
               
               <div className="flex flex-wrap gap-2">
-                {filters.map(f => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setActiveFilter(f)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      activeFilter === f
-                        ? 'bg-[#5352ED] text-white shadow-xs'
-                        : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-gray-50'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
+                {filters.map(f => {
+                  const filterLabels = {
+                    All: t('filterAll'),
+                    Grants: t('filterGrants'),
+                    Competitions: t('filterCompetitions'),
+                    Campaigns: t('filterCampaigns'),
+                    Events: t('filterEvents')
+                  };
+
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setActiveFilter(f)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${activeFilter === f
+                          ? 'bg-[#5352ED] text-white shadow-xs'
+                          : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-gray-50'
+                        }`}
+                    >
+                      {filterLabels[f] || f}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -545,7 +578,7 @@ const handleToggleAlertPref = async (type) => {
                           onClick={() => navigate('/opportunity-details', { state: { opportunity: opp } })}
                           className="text-xs text-[#5352ED] font-bold flex items-center gap-1 hover:underline"
                         >
-                          View Opportunity
+                          {t('viewOpportunityBtn')}
                         </button>
                         <button 
                           type="button"
@@ -557,7 +590,7 @@ const handleToggleAlertPref = async (type) => {
                           }`}
                         >
                           <FiBookmark size={13} className={isSaved ? 'fill-current' : ''} />
-                          {isSaved ? 'Saved' : 'Save'}
+                          {isSaved ? t('savedBtn') : t('saveBtn')}
                         </button>
                       </div>
                     </div>

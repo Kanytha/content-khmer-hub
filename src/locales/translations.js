@@ -159,6 +159,79 @@ export const translations = {
     formatTextPost: "Text Post",
     formatLiveStream: "Live Stream",
     formatNotSure: "Not Sure Yet",
+
+    // Opportunities page
+    oppTitle: "Opportunities",
+    oppSubtitle: "Discover programs, events, collaborations, and other possibilities happening outside CKH that may be relevant to your creator journey.",
+    relevantFocusPrefix: "Relevant to your current focus:",
+    changeFocus: "Change focus",
+    upcomingEventHeader: "UPCOMING EVENT",
+    deadlinePrefix: "Deadline in",
+    daysSuffix: "days",
+    sourcePrefix: "Source:",
+    typeLabel: "TYPE",
+    areaLabel: "AREA",
+    locationLabel: "LOCATION",
+    deadlineLabel: "REGISTRATION DEADLINE",
+    viewDetailsBtn: "View Details",
+
+    notifPrefTitle: "Notification Preferences",
+    notifPrefSubtitle: "Select the types of opportunities you want to receive alerts for in your notification bell.",
+    prefScholarships: "Scholarships",
+    prefGrants: "Grants",
+    prefBrandCollabs: "Brand Collaborations",
+    prefWorkshops: "Workshops & Events",
+    prefContests: "Contests & Awards",
+
+    // Explore Feed
+    exploreOpportunitiesTitle: "Explore Opportunities",
+    filterAll: "All",
+    filterGrants: "Grants",
+    filterCompetitions: "Competitions",
+    filterCampaigns: "Campaigns",
+    filterEvents: "Events",
+    relevantFocusBadge: "Relevant to your focus",
+    viewOpportunityBtn: "View Opportunity",
+    saveBtn: "Save",
+    savedBtn: "Saved",
+
+    // Profile Page
+    contentCreatorBadge: "CONTENT CREATOR",
+    profileBioSubtitle: "Keep your creator profile up to date so CKH can provide more relevant guidance.",
+    editProfileBtn: "Edit Profile",
+    aboutYouTitle: "About You",
+    creatorFocusLabel: "CREATOR FOCUS",
+    currentGoalLabel: "CURRENT GOAL",
+    primaryPlatformLabel: "PRIMARY PLATFORM",
+    contentTopicsLabel: "CONTENT TOPICS",
+
+    // CKH Observations
+    ckhObservationsTitle: "CKH Observations",
+    ckhObservationsSubtitle: "Insights gathered to personalize your experience. You control what we know.",
+    updateAction: "Update",
+    stillAccurateAction: "Still accurate",
+
+    // Right Sidebar / Membership Card
+    membershipPlanHeader: "MEMBERSHIP PLAN",
+    autoRenewActiveBadge: "AUTO-RENEW ACTIVE",
+    ckhPremiumActiveTitle: "CKH Premium Active ($2.99 / mo)",
+    ckhPremiumActiveDesc: "Your subscription will automatically renew each month. You can cancel anytime.",
+    nextBillingDateLabel: "Next billing date:",
+    cancelAutoRenewalBtn: "Cancel Auto-Renewal",
+    disconnectYouTubeBtn: "Disconnect YouTube Channel",
+
+    // Right Sidebar / Links & Settings
+    dataAndPrivacyTitle: "Data & Privacy",
+    manageMyInfoLink: "Manage My Information",
+    howCKHUsesInfoLink: "How CKH Uses My Information",
+    privacyAndDataLink: "Privacy & Data",
+    settingsSectionTitle: "Settings",
+    accountLink: "Account",
+    securityLink: "Security",
+    historyLink: "History",
+    savedLink: "Saved",
+    logoutBtn: "Logout",
+
   },
 
   km: {
@@ -320,5 +393,78 @@ export const translations = {
     formatTextPost: "អត្ថបទ",
     formatLiveStream: "ការផ្សាយផ្ទាល់",
     formatNotSure: "មិនទាន់ច្បាស់",
+
+    // Opportunities page
+    oppTitle: "ឱកាសសម្រាប់អ្នកបង្កើតមាតិកា",
+    oppSubtitle: "ស្វែងរកកម្មវិធី ព្រឹត្តិការណ៍ កិច្ចសហការ និងឱកាសផ្សេងៗក្រៅប្រព័ន្ធ CKH ដែលអាចជួយជំរុញដំណើរការផលិតមាតិការបស់អ្នក។",
+    relevantFocusPrefix: "ត្រូវគ្នានឹងការផ្តោតបច្ចុប្បន្នរបស់អ្នក៖",
+    changeFocus: "ផ្លាស់ប្តូរការផ្តោត",
+    upcomingEventHeader: "ព្រឹត្តិការណ៍ជិតមកដល់",
+    deadlinePrefix: "ផុតកំណត់ក្នុងរយៈពេល",
+    daysSuffix: "ថ្ងៃទៀត",
+    sourcePrefix: "ប្រភព៖",
+    typeLabel: "ប្រភេទ",
+    areaLabel: "វិស័យ",
+    locationLabel: "ទីតាំង",
+    deadlineLabel: "កាលបរិច្ឆេទផុតកំណត់",
+    viewDetailsBtn: "មើលលម្អិត",
+
+    // Preferences Card
+    notifPrefTitle: "ចំណង់ចំណូលចិត្តការជូនដំណឹង",
+    notifPrefSubtitle: "ជ្រើសរើសប្រភេទឱកាសដែលអ្នកចង់ឱ្យប្រព័ន្ធផ្ញើដំណឹងរំលឹកក្នុងកណ្តឹងជូនដំណឹង។",
+    prefScholarships: "អាហារូបករណ៍",
+    prefGrants: "ជំនួយឧបត្ថម្ភ (Grants)",
+    prefBrandCollabs: "ការសហការជាមួយម៉ាកយីហោ",
+    prefWorkshops: "សិក្ខាសាលា & ព្រឹត្តិការណ៍",
+    prefContests: "ការប្រកួតប្រជែង & ពានរង្វាន់",
+
+    // Explore Feed
+    exploreOpportunitiesTitle: "រុករកឱកាស",
+    filterAll: "ទាំងអស់",
+    filterGrants: "ជំនួយឧបត្ថម្ភ",
+    filterCompetitions: "ការប្រកួតប្រជែង",
+    filterCampaigns: "យុទ្ធនាការ",
+    filterEvents: "ព្រឹត្តិការណ៍",
+    relevantFocusBadge: "ត្រូវគ្នានឹងទិសដៅរបស់អ្នក",
+    viewOpportunityBtn: "មើលឱកាសនេះ",
+    saveBtn: "រក្សាទុក",
+    savedBtn: "បានរក្សាទុក",
+
+    // Profile Page
+    contentCreatorBadge: "អ្នកបង្កើតមាតិកា",
+    profileBioSubtitle: "រក្សាព័ត៌មានប្រវត្តិរូបរបស់អ្នកឱ្យទាន់សម័យ ដើម្បីឱ្យ CKH ផ្តល់ការណែនាំកាន់តែត្រូវគោលដៅ។",
+    editProfileBtn: "កែសម្រួលប្រវត្តិរូប",
+    aboutYouTitle: "អំពីអ្នក",
+    creatorFocusLabel: "វិស័យផ្តោត",
+    currentGoalLabel: "គោលដៅបច្ចុប្បន្ន",
+    primaryPlatformLabel: "វេទិកាចម្បង",
+    contentTopicsLabel: "ប្រធានបទមាតិកា",
+
+    // CKH Observations
+    ckhObservationsTitle: "ការសង្កេតពី CKH",
+    ckhObservationsSubtitle: "ទិន្នន័យប្រមូលបានដើម្បីសម្របតាមតម្រូវការរបស់អ្នក។ អ្នកអាចគ្រប់គ្រងអ្វីដែលយើងដឹង។",
+    updateAction: "កែប្រែ",
+    stillAccurateAction: "នៅតែត្រឹមត្រូវ",
+
+    // Right Sidebar / Membership Card
+    membershipPlanHeader: "គម្រោងសមាជិកភាព",
+    autoRenewActiveBadge: "បន្តស្វ័យប្រវត្តិកំពុងដំណើរការ",
+    ckhPremiumActiveTitle: "CKH Premium សកម្ម ($2.99 / ខែ)",
+    ckhPremiumActiveDesc: "គម្រោងរបស់អ្នកនឹងបន្តដោយស្វ័យប្រវត្តរៀងរាល់ខែ។ អ្នកអាចបោះបង់នៅពេលណាក៏បាន។",
+    nextBillingDateLabel: "កាលបរិច្ឆេទគិតប្រាក់បន្ទាប់៖",
+    cancelAutoRenewalBtn: "បោះបង់ការបន្តស្វ័យប្រវត្តិ",
+    disconnectYouTubeBtn: "ផ្តាច់ប៉ុស្តិ៍ YouTube",
+
+    // Right Sidebar / Links & Settings
+    dataAndPrivacyTitle: "ទិន្នន័យ & ឯកជនភាព",
+    manageMyInfoLink: "គ្រប់គ្រងព័ត៌មានផ្ទាល់ខ្លួន",
+    howCKHUsesInfoLink: "របៀបដែល CKH ប្រើប្រាស់ទិន្នន័យរបស់អ្នក",
+    privacyAndDataLink: "ឯកជនភាព & ទិន្នន័យ",
+    settingsSectionTitle: "ការកំណត់",
+    accountLink: "គណនី",
+    securityLink: "សុវត្ថិភាព",
+    historyLink: "ប្រវត្តិ",
+    savedLink: "បានរក្សាទុក",
+    logoutBtn: "ចាកចេញ",
   }
 };

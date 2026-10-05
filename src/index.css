@@ -1,15 +1,11 @@
 /* GOOGLE FONTS*/
 /* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap'); */
 
-@import url('https://fonts.googleapis.com/css2?family=Battambang:wght@400;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kantumruy+Pro:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
 @import "tailwindcss";
 
-
-/*CUSTOM THEME*/
-
 @theme {
-  /*Custom Colors */
   --color-studio-white: #FFFFFF;
   --color-cool-ash: #F8FAFC;
   --color-jet-obsidian: #0F172A;
@@ -17,19 +13,24 @@
   --color-slate: #64748B;
   --color-border: #E2E8F0;
 
-  /*Custom Fonts */
-  --font-sans: 'Inter', sans-serif;
-  --font-heading: 'Plus Jakarta Sans', sans-serif;
-  --font-khmer: 'Noto Sans Khmer', 'Battambang', sans-serif;
+  --font-sans: 'Inter', 'Kantumruy Pro', 'Noto Sans Khmer', sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Kantumruy Pro', sans-serif;
+  --font-khmer: 'Kantumruy Pro', 'Noto Sans Khmer', sans-serif;
 }
 
-/* AUTOMATIC KHMER SWITCH*/
+/* AUTOMATIC KHMER SWITCH */
 :root[lang="km"],
+html[lang="km"],
 html[lang="km"] body {
-  font-family: var(--font-khmer);
-  line-height: 1.6;
+  font-family: 'Kantumruy Pro', 'Noto Sans Khmer', sans-serif !important;
+  line-height: 1.75;
+  letter-spacing: 0.01em;
 }
 
+/* Prevent Khmer diacritics / sub-consonants from clipping */
+[lang="km"] * {
+  font-family: inherit;
+}
 /*BASE STYLES*/
 
 @layer base {
