@@ -20,7 +20,7 @@ import { LuLayoutGrid, LuTrendingUp, LuSmartphone, LuHash } from 'react-icons/lu
 
 export default function ProfilePage() {
     const navigate = useNavigate();
-    const { lang } = useLanguage();
+    const { t, lang } = useLanguage();
     const { isPremium, status, expiresAt, refreshSubscription } = useSubscription();
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
@@ -325,90 +325,96 @@ export default function ProfilePage() {
     };
 
     const handleExecuteCancel = async () => {
-  await cancelSubscription();
+        await cancelSubscription();
 
-  const subKey = `ckh_subscription_${currentUser?.id || 'demo'}`;
-  try {
-    const currentSub = JSON.parse(localStorage.getItem(subKey) || '{}');
-    const updatedSub = { ...currentSub, auto_renew: false };
-    localStorage.setItem(subKey, JSON.stringify(updatedSub));
-  } catch (e) {}
+        const subKey = `ckh_subscription_${currentUser?.id || 'demo'}`;
+        try {
+            const currentSub = JSON.parse(localStorage.getItem(subKey) || '{}');
+            const updatedSub = { ...currentSub, auto_renew: false };
+            localStorage.setItem(subKey, JSON.stringify(updatedSub));
+        } catch (e) { }
 
-  if (currentUser?.id) {
-    await supabase
-      .from('creator_profiles')
-      .update({ subscription_renews_at: null })
-      .eq('user_id', currentUser.id);
-  }
+        if (currentUser?.id) {
+            await supabase
+                .from('creator_profiles')
+                .update({ subscription_renews_at: null })
+                .eq('user_id', currentUser.id);
+        }
 
-  refreshSubscription();
-  window.dispatchEvent(new Event('ckh_subscription_updated'));
-};
+        refreshSubscription();
+        window.dispatchEvent(new Event('ckh_subscription_updated'));
+    };
 
-    const SidebarContent = ({ onClose }) => (
-        <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
-            <div>
-                <div className="px-2 mb-10 flex justify-between items-center">
-                    <img src={logo} alt="Logo" className="h-12 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
-                    >
-                        <FiX size={24} />
-                    </button>
+    const SidebarContent = ({ onClose }) => {
+        const handleNav = (path) => {
+            onClose?.();
+            navigate(path);
+        };
+
+        return (
+            <div className="flex flex-col justify-between h-full py-8 px-4 font-normal">
+                <div>
+                    <div className="px-2 mb-10 flex justify-between items-center">
+                        <img src={logo} alt="Logo" className="h-12 w-auto object-contain cursor-pointer" onClick={() => handleNav('/dashboard')} />
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
+                        >
+                            <FiX size={24} />
+                        </button>
+                    </div>
+
+                    <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
+                        <div
+                            onClick={() => handleNav('/dashboard')}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+                        >
+                            <FiGrid size={18} /> {t('dashboard')}
+                        </div>
+                        <div
+                            onClick={() => handleNav('/recommendations')}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+                        >
+                            <FiStar size={18} /> {t('recommendations')}
+                        </div>
+                        <div
+                            onClick={() => handleNav('/ideas')}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+                        >
+                            <FiEdit3 size={18} /> {t('ideas')}
+                        </div>
+                        <div
+                            onClick={() => handleNav('/opportunities')}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+                        >
+                            <FiCompass size={18} /> {t('opportunities')}
+                        </div>
+                        <div
+                            className="flex items-center gap-3 bg-white text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-bold"
+                        >
+                            <FiUser size={18} /> {t('profile')}
+                        </div>
+                    </nav>
                 </div>
 
-                <nav className="space-y-1 text-sm font-normal text-[#64748B]">
+                <div className="space-y-1 text-sm font-semibold text-[#64748B]">
+                    <SettingsPopover onCloseParent={onClose} />
                     <div
-                        onClick={() => { onClose?.(); navigate('/dashboard'); }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
+                        onClick={() => handleNav('/support')}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
                     >
-                        <FiGrid size={18} /> Dashboard
+                        <FiHelpCircle size={18} /> {t('support')}
                     </div>
-                    <div
-                        onClick={() => { onClose?.(); navigate('/recommendations'); }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
-                    >
-                        <FiStar size={18} /> Recommendations
-                    </div>
-                    <div
-                        onClick={() => { onClose?.(); navigate('/ideas'); }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
-                    >
-                        <FiEdit3 size={18} /> Ideas
-                    </div>
-                    <div
-                        onClick={() => { onClose?.(); navigate('/opportunities'); }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-white hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
-                    >
-                        <FiCompass size={18} /> Opportunities
-                    </div>
-                    <div
-                        onClick={() => { onClose?.(); navigate('/profile'); }}
-                        className="flex items-center gap-3 bg-white text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-bold"
-                    >
-                        <FiUser size={18} /> Profile
-                    </div>
-                </nav>
-            </div>
-
-            <div className="space-y-1 text-sm font-normal text-[#64748B]">
-                <SettingsPopover onCloseParent={onClose} />
-                <div
-                    onClick={() => navigate('/support')}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300"
-                >
-                    <FiHelpCircle size={18} /> Support
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A] bg-white font-normal">
             <div className="md:hidden flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-white">
-                <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
+                <img src={logo} alt="Logo" className="h-10 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
                 <button
                     onClick={() => setIsMobileMenuOpen(true)}
                     className="text-[#0F172A] hover:text-[#5352ED] transition-colors"
@@ -457,11 +463,11 @@ export default function ProfilePage() {
                                 </h1>
 
                                 <div className="flex items-center gap-1.5 text-xs text-[#5352ED] font-medium tracking-wide uppercase">
-                                    <HiOutlineSparkles size={14} /> CONTENT CREATOR
+                                    <HiOutlineSparkles size={14} /> {t('contentCreatorBadge')}
                                 </div>
 
                                 <p className="text-xs text-[#64748B] leading-relaxed max-w-md pt-0.5">
-                                    Keep your creator profile up to date so CKH can provide more relevant guidance.
+                                    {t('profileBioSubtitle')}
                                 </p>
                             </div>
                         </div>
@@ -471,7 +477,7 @@ export default function ProfilePage() {
                             onClick={() => navigate('/account')}
                             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-[#D1D5DB] text-xs font-normal text-[#1E293B] hover:bg-gray-50 transition-colors self-start sm:self-center shadow-2xs cursor-pointer"
                         >
-                            <FiEdit2 size={13} /> Edit Profile
+                            <FiEdit2 size={13} /> {t('editProfileBtn')}
                         </button>
                     </div>
 
@@ -480,13 +486,13 @@ export default function ProfilePage() {
 
                             <div className="space-y-4">
                                 <h2 className="text-lg font-medium text-[#0F172A] tracking-tight">
-                                    About You
+                                    {t('aboutYouTitle')}
                                 </h2>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="bg-white border border-[#E5E7EB] p-5 rounded-2xl space-y-2 shadow-2xs hover:border-[#CBD5E1] transition-all">
                                         <div className="flex items-center gap-2 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                                            <LuLayoutGrid size={15} /> CREATOR FOCUS
+                                            <LuLayoutGrid size={15} /> {t('creatorFocusLabel')}
                                         </div>
                                         <p className="text-sm font-medium text-[#1E293B]">
                                             {creatorProfile.focus}
@@ -495,7 +501,7 @@ export default function ProfilePage() {
 
                                     <div className="bg-white border border-[#E5E7EB] p-5 rounded-2xl space-y-2 shadow-2xs hover:border-[#CBD5E1] transition-all">
                                         <div className="flex items-center gap-2 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                                            <LuTrendingUp size={15} /> CURRENT GOAL
+                                            <LuTrendingUp size={15} /> {t('currentGoalLabel')}
                                         </div>
                                         <p className="text-sm font-medium text-[#1E293B]">
                                             {creatorProfile.goal}
@@ -504,7 +510,7 @@ export default function ProfilePage() {
 
                                     <div className="bg-white border border-[#E5E7EB] p-5 rounded-2xl space-y-2 shadow-2xs hover:border-[#CBD5E1] transition-all">
                                         <div className="flex items-center gap-2 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                                            <LuSmartphone size={15} /> PRIMARY PLATFORM
+                                            <LuSmartphone size={15} /> {t('primaryPlatformLabel')}
                                         </div>
                                         <div>
                                             <span className="inline-block bg-[#F1F5F9] text-[#334155] text-xs px-3 py-1 rounded-lg">
@@ -515,12 +521,12 @@ export default function ProfilePage() {
 
                                     <div className="bg-white border border-[#E5E7EB] p-5 rounded-2xl space-y-2 shadow-2xs hover:border-[#CBD5E1] transition-all">
                                         <div className="flex items-center gap-2 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                                            <LuHash size={15} /> CONTENT TOPICS
+                                            <LuHash size={15} /> {t('contentTopicsLabel')}
                                         </div>
                                         <div className="flex flex-wrap gap-1.5 pt-0.5">
-                                            {creatorProfile.topics.map((t, idx) => (
+                                            {creatorProfile.topics.map((item, idx) => (
                                                 <span key={idx} className="bg-[#EEF2FF] text-[#4338CA] text-xs px-2.5 py-1 rounded-lg">
-                                                    {t}
+                                                    {item}
                                                 </span>
                                             ))}
                                         </div>
@@ -531,10 +537,10 @@ export default function ProfilePage() {
                             <div className="space-y-4 pt-2">
                                 <div>
                                     <h2 className="text-lg font-medium text-[#0F172A] tracking-tight">
-                                        CKH Observations
+                                        {t('ckhObservationsTitle')}
                                     </h2>
                                     <p className="text-xs text-[#64748B] mt-0.5 font-normal">
-                                        Insights gathered to personalize your experience. You control what we know.
+                                        {t('ckhObservationsSubtitle')}
                                     </p>
                                 </div>
 
@@ -561,7 +567,7 @@ export default function ProfilePage() {
                                                     onClick={() => navigate('/edit-profile')}
                                                     className="text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
                                                 >
-                                                    Update
+                                                    {t('updateAction')}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -571,7 +577,7 @@ export default function ProfilePage() {
                                                         : 'border-[#D1D5DB] text-[#64748B] hover:bg-gray-50'
                                                         }`}
                                                 >
-                                                    {obs.verified ? 'Still accurate' : 'Needs update'}
+                                                    {obs.verified ? t('stillAccurateAction') : 'Needs update'}
                                                 </button>
                                             </div>
                                         </div>
@@ -587,7 +593,7 @@ export default function ProfilePage() {
                             <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-4 shadow-2xs hover:border-[#CBD5E1] transition-all">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5 text-[11px] text-[#94A3B8] uppercase tracking-wider font-medium">
-                                        <FiZap size={14} className="text-[#5352ED]" /> MEMBERSHIP PLAN
+                                        <FiZap size={14} className="text-[#5352ED]" /> {t('membershipPlanHeader')}
                                     </div>
                                     <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                                         isPremium 
@@ -596,7 +602,7 @@ export default function ProfilePage() {
                                                 : 'bg-[#EEF2FF] text-[#5352ED] border border-[#C7D2FE]' 
                                             : 'bg-slate-100 text-slate-600 border border-slate-200'
                                     }`}>
-                                        {isPremium ? (status === 'cancelled' ? 'Cancelling Soon' : 'Auto-Renew Active') : 'Free Tier'}
+                                        {isPremium ? (status === 'cancelled' ? 'Cancelling Soon' : t('autoRenewActiveBadge')) : 'Free Tier'}
                                     </span>
                                 </div>
 
@@ -608,17 +614,16 @@ export default function ProfilePage() {
                                                 : 'bg-[#F0FDF4] border-[#DCFCE7] text-[#15803D]'
                                         }`}>
                                             <div className="flex items-center gap-1.5 text-xs font-semibold">
-                                                {/* <FiCheckCircle size={14} /> */}
                                                 <span>
                                                     {status === 'cancelled' 
                                                         ? 'Subscription Cancelled (No Future Charges)' 
-                                                        : 'CKH Premium Active ($2.99 / mo)'}
+                                                        : t('ckhPremiumActiveTitle')}
                                                 </span>
                                             </div>
                                             <p className="text-[11px] leading-relaxed opacity-90">
                                                 {status === 'cancelled'
                                                     ? 'You will not be billed next month. You still have full access to all features until your 30-day term ends.'
-                                                    : 'Your subscription will automatically renew each month. You can cancel anytime.'}
+                                                    : t('ckhPremiumActiveDesc')}
                                             </p>
                                         </div>
 
@@ -626,10 +631,10 @@ export default function ProfilePage() {
                                             <div className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                                                 <span className="flex items-center gap-1.5 text-[#64748B]">
                                                     <FiClock size={13} className="text-[#5352ED]" /> 
-                                                    {status === 'cancelled' ? 'Access ends on:' : 'Next billing date:'}
+                                                    {status === 'cancelled' ? 'Access ends on:' : t('nextBillingDateLabel')}
                                                 </span>
                                                 <span className="font-bold text-[#0F172A]">
-                                                    {new Date(expiresAt).toLocaleDateString('en-US', {
+                                                    {new Date(expiresAt).toLocaleDateString(lang === 'km' ? 'km-KH' : 'en-US', {
                                                         month: 'short',
                                                         day: 'numeric',
                                                         year: 'numeric'
@@ -652,12 +657,12 @@ export default function ProfilePage() {
                                                 </button>
                                             ) : (
                                                 <button
-  type="button"
-  onClick={() => setIsCancelModalOpen(true)}
-  className="w-full py-2 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-xs font-medium transition-colors cursor-pointer"
->
-  Cancel Auto-Renewal
-</button>
+                                                    type="button"
+                                                    onClick={() => setIsCancelModalOpen(true)}
+                                                    className="w-full py-2 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-xs font-medium transition-colors cursor-pointer"
+                                                >
+                                                    {t('cancelAutoRenewalBtn')}
+                                                </button>
                                             )}
 
                                             <button
@@ -670,7 +675,7 @@ export default function ProfilePage() {
                                                 }}
                                                 className="w-full py-2 px-3 border border-[#E2E8F0] hover:bg-slate-50 text-[#64748B] hover:text-[#0F172A] rounded-xl text-xs font-medium transition-colors cursor-pointer"
                                             >
-                                                Disconnect YouTube Channel
+                                                {t('disconnectYouTubeBtn')}
                                             </button>
                                         </div>
                                     </div>
@@ -699,7 +704,7 @@ export default function ProfilePage() {
 
                             <div className="space-y-3">
                                 <h3 className="text-sm font-medium text-[#0F172A] tracking-tight mb-2">
-                                    Data & Privacy
+                                    {t('dataAndPrivacyTitle')}
                                 </h3>
 
                                 <div className="divide-y divide-gray-100 text-xs text-[#334155]">
@@ -707,20 +712,20 @@ export default function ProfilePage() {
                                         onClick={() => navigate('/manage-info')}
                                         className="py-3 flex items-center justify-between cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
-                                        <span>Manage My Information</span>
+                                        <span>{t('manageMyInfoLink')}</span>
                                     </div>
                                     <div
                                         onClick={() => navigate('/support')}
                                         className="py-3 flex items-center justify-between cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
-                                        <span>How CKH Uses My Information</span>
+                                        <span>{t('howCKHUsesInfoLink')}</span>
                                         <FiChevronRight className="text-[#94A3B8]" size={15} />
                                     </div>
                                     <div
                                         onClick={() => navigate('/privacy')}
                                         className="py-3 flex items-center justify-between cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
-                                        <span>Privacy & Data</span>
+                                        <span>{t('privacyAndDataLink')}</span>
                                         <FiChevronRight className="text-[#94A3B8]" size={15} />
                                     </div>
                                 </div>
@@ -728,7 +733,7 @@ export default function ProfilePage() {
 
                             <div className="space-y-3 pt-2">
                                 <h3 className="text-sm font-medium text-[#0F172A] tracking-tight mb-2">
-                                    Settings
+                                    {t('settingsSectionTitle')}
                                 </h3>
 
                                 <div className="space-y-3 text-xs text-[#334155]">
@@ -736,25 +741,25 @@ export default function ProfilePage() {
                                         onClick={() => navigate('/edit-profile')}
                                         className="cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
-                                        Account
+                                        {t('accountLink')}
                                     </div>
                                     <div
                                         onClick={() => navigate('/account')}
                                         className="cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
-                                        Security
+                                        {t('securityLink')}
                                     </div>
                                     <div
                                         onClick={() => navigate('/history')}
                                         className="cursor-pointer hover:text-[#5352ED] transition-colors"
                                     >
-                                        History
+                                        {t('historyLink')}
                                     </div>
                                     <div
                                         onClick={() => navigate('/saved')}
                                         className="cursor-pointer hover:text-[#5352ED] transition-colors font-thin"
                                     >
-                                        Saved
+                                        {t('savedLink')}
                                     </div>
                                 </div>
 
@@ -764,7 +769,7 @@ export default function ProfilePage() {
                                         onClick={handleLogout}
                                         className="inline-flex items-center gap-2 text-xs text-red-600 hover:text-red-700 transition-colors font-medium cursor-pointer"
                                     >
-                                        <FiLogOut size={14} /> Logout
+                                        <FiLogOut size={14} /> {t('logoutBtn')}
                                     </button>
                                 </div>
                             </div>
@@ -777,11 +782,11 @@ export default function ProfilePage() {
             </div>
 
             <CancelAutoRenewModal
-  isOpen={isCancelModalOpen}
-  onClose={() => setIsCancelModalOpen(false)}
-  onConfirm={handleExecuteCancel}
-  expiresAt={expiresAt}
-/>
+                isOpen={isCancelModalOpen}
+                onClose={() => setIsCancelModalOpen(false)}
+                onConfirm={handleExecuteCancel}
+                expiresAt={expiresAt}
+            />
 
             {/* Upgrade & Payment Modal */}
             <UpgradeModal

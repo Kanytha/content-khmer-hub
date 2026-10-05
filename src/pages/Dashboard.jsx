@@ -163,6 +163,20 @@ export default function Dashboard() {
             if (dbPlan) activePlan = dbPlan;
           }
 
+          if (activePlan) {
+            const { data: alreadyDone } = await supabase
+              .from('reflections')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('recommendation_title', activePlan.title)
+              .maybeSingle();
+
+            if (alreadyDone) {
+              localStorage.removeItem('ckh_active_in_progress_recommendation');
+              activePlan = null;
+            }
+          }
+
           setDashboardData({
             ...data,
             active_in_progress_recommendation: activePlan

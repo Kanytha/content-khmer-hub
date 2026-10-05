@@ -37,7 +37,7 @@ export default function SettingsPopover({ onCloseParent }) {
       {isOpen && (
         <div className="absolute left-0 bottom-full mb-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 text-xs font-medium text-[#0F172A] animate-in fade-in duration-150">
           <div
-            onClick={() => handleNavigate('/security')}
+            onClick={() => handleNavigate('/account')}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F8FAFC] hover:text-[#5352ED] transition-colors cursor-pointer"
           >
             <FiShield size={16} className="text-gray-400 shrink-0" />

@@ -453,7 +453,7 @@ export const translations = {
     ckhPremiumActiveDesc: "គម្រោងរបស់អ្នកនឹងបន្តដោយស្វ័យប្រវត្តរៀងរាល់ខែ។ អ្នកអាចបោះបង់នៅពេលណាក៏បាន។",
     nextBillingDateLabel: "កាលបរិច្ឆេទគិតប្រាក់បន្ទាប់៖",
     cancelAutoRenewalBtn: "បោះបង់ការបន្តស្វ័យប្រវត្តិ",
-    disconnectYouTubeBtn: "ផ្តាច់ប៉ុស្តិ៍ YouTube",
+    disconnectYouTubeBtn: "ផ្តាច់ការបន្តភ្ជាប់ YouTube",
 
     // Right Sidebar / Links & Settings
     dataAndPrivacyTitle: "ទិន្នន័យ & ឯកជនភាព",

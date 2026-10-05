@@ -13,6 +13,19 @@ import {
 export default function ReflectionPage() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const returnPath = location.state?.from || -1;
+  const backLabel = location.state?.fromLabel 
+    ? `Back to ${location.state.fromLabel}` 
+    : 'Back';
+
+  const handleGoBack = () => {
+    if (typeof returnPath === 'number') {
+      navigate(-1);
+    } else {
+      navigate(returnPath);
+    }
+  };
   const { isPremium } = useSubscription();
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -36,6 +49,21 @@ export default function ReflectionPage() {
   );
 
   const [expectation, setExpectation] = useState('');
+  const [editingId, setEditingId] = useState(null);
+
+  const handleEditReflection = (item) => {
+    setEditingId(item.id || null);
+    setTargetRecommendation({
+      title: item.recommendation_title || item.title,
+      category: item.recommendation_category || item.category || 'General'
+    });
+    setExpectation(item.expectation_result || '');
+    setAudienceNotes(item.audience_observations || []);
+    setUnexpectedText(item.unexpected_notes || '');
+    setFutureChange(item.future_change || '');
+    setGuidanceRating(item.guidance_rating || 0);
+    setViewMode('form');
+  };
   const [audienceNotes, setAudienceNotes] = useState([]);
   const [unexpectedText, setUnexpectedText] = useState('');
   const [futureChange, setFutureChange] = useState('');
@@ -79,8 +107,8 @@ export default function ReflectionPage() {
           .order('created_at', { ascending: false });
 
         const reflectedTitles = (savedReflections || []).map(r => (r.recommendation_title || '').trim().toLowerCase());
-        
-        const unreflected = (userIdeas || []).filter(idea => 
+
+        const unreflected = (userIdeas || []).filter(idea =>
           !reflectedTitles.includes((idea.title || '').trim().toLowerCase())
         );
 
@@ -138,6 +166,14 @@ export default function ReflectionPage() {
 
       if (error) throw error;
 
+      localStorage.removeItem('ckh_active_in_progress_recommendation');
+
+      await supabase
+        .from('creator_action_plans')
+        .update({ status: 'completed' })
+        .eq('user_id', currentUser.id)
+        .eq('status', 'in_progress');
+
       await supabase
         .from('creator_profiles')
         .update({
@@ -151,10 +187,15 @@ export default function ReflectionPage() {
 
       setCompletedReflections(prev => [newEntry || payload, ...prev]);
       setPendingReflections(prev => prev.filter(p => p.title !== targetRecommendation.title));
-      setViewMode('list');
-      setActiveTab('completed');
+
+      if (location.state?.from) {
+        navigate(location.state.from);
+      } else {
+        setViewMode('list');
+        setActiveTab('completed');
+      }
     } catch (err) {
-      console.error("Error saving reflection:", err);
+      console.error("Error saving reflection:", err?.message || err?.details || JSON.stringify(err));
     } finally {
       setSubmitting(false);
     }
@@ -305,11 +346,10 @@ export default function ReflectionPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('completed')}
-                  className={`pb-3 font-semibold transition-colors flex items-center gap-2 cursor-pointer ${
-                    activeTab === 'completed' 
-                      ? 'text-[#5352ED] border-b-2 border-[#5352ED]' 
+                  className={`pb-3 font-semibold transition-colors flex items-center gap-2 cursor-pointer ${activeTab === 'completed'
+                      ? 'text-[#5352ED] border-b-2 border-[#5352ED]'
                       : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
+                    }`}
                 >
                   <FiCheckCircle size={16} />
                   Answered Reflections ({completedReflections.length})
@@ -318,11 +358,10 @@ export default function ReflectionPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('pending')}
-                  className={`pb-3 font-semibold transition-colors flex items-center gap-2 cursor-pointer ${
-                    activeTab === 'pending' 
-                      ? 'text-[#5352ED] border-b-2 border-[#5352ED]' 
+                  className={`pb-3 font-semibold transition-colors flex items-center gap-2 cursor-pointer ${activeTab === 'pending'
+                      ? 'text-[#5352ED] border-b-2 border-[#5352ED]'
                       : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
+                    }`}
                 >
                   <FiClock size={16} />
                   Not Yet Answered ({pendingReflections.length})
@@ -335,7 +374,11 @@ export default function ReflectionPage() {
                     <p className="text-xs text-[#64748B] py-8 text-center">Loading reflections...</p>
                   ) : completedReflections.length > 0 ? (
                     completedReflections.map((ref, idx) => (
-                      <div key={ref.id || idx} className="p-5 border border-[#E2E8F0] rounded-2xl bg-white shadow-2xs space-y-3">
+                      <div
+                        key={ref.id || idx}
+                        onClick={() => handleEditReflection(ref)}
+                        className="p-5 border border-[#E2E8F0] rounded-2xl bg-white shadow-2xs space-y-3 hover:border-[#5352ED] transition-all cursor-pointer"
+                      >
                         <div className="flex items-start justify-between">
                           <div>
                             <span className="text-[10px] font-bold tracking-wider text-[#5352ED] uppercase bg-[#EEF2FF] px-2.5 py-0.5 rounded-md">
@@ -403,13 +446,13 @@ export default function ReflectionPage() {
           ) : (
 
             <div className="space-y-10">
-              <button 
-                type="button" 
-                onClick={() => setViewMode('list')}
-                className="inline-flex items-center gap-2 text-xs text-[#64748B] hover:text-[#0F172A] cursor-pointer"
-              >
-                <FiArrowLeft size={14} /> Back to All Reflections
-              </button>
+                <button
+                  type="button"
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-2 text-xs text-[#64748B] hover:text-[#0F172A] cursor-pointer"
+                >
+                  <span className="text-sm">←</span> {backLabel}
+                </button>
 
               <div>
                 <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#0F172A] mb-2">
@@ -424,18 +467,18 @@ export default function ReflectionPage() {
               </div>
 
               <div className="border border-[#E2E8F0] rounded-2xl p-5 bg-[#FFFFFF] shadow-2xs space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#F5F2FF] text-[#5352ED] flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-[#F5F2FF] text-[#5352ED] flex items-center justify-center shrink-0">
                     <FiBookOpen size={20} />
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold tracking-wider text-[#94A3B8] uppercase">
+                  <div className="flex flex-col justify-center min-w-0">
+                    <span className="text-[10px] font-bold tracking-wider text-[#94A3B8] uppercase leading-none mb-1">
                       Reflecting on
                     </span>
-                    <h3 className="text-base font-bold text-[#0F172A] leading-snug">
+                    <h3 className="text-base font-bold text-[#0F172A] leading-tight">
                       {targetRecommendation.title}
                     </h3>
-                    <p className="text-xs text-[#64748B]">{targetRecommendation.category}</p>
+                    <p className="text-xs text-[#64748B] mt-0.5">{targetRecommendation.category}</p>
                   </div>
                 </div>
 
@@ -454,11 +497,10 @@ export default function ReflectionPage() {
                       key={opt}
                       type="button"
                       onClick={() => setExpectation(opt)}
-                      className={`px-5 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                        expectation === opt
+                      className={`px-5 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${expectation === opt
                           ? 'bg-[#5352ED] text-white border-[#5352ED] shadow-xs'
                           : 'bg-white text-[#475569] border-[#E2E8F0] hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       {opt}
                     </button>
@@ -481,16 +523,15 @@ export default function ReflectionPage() {
                       <label
                         key={opt}
                         onClick={() => toggleObservation(opt)}
-                        className={`flex items-center gap-3 p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                          checked
+                        className={`flex items-center gap-3 p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${checked
                             ? 'border-[#5352ED] bg-[#F5F2FF] text-[#0F172A] font-semibold'
                             : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]'
-                        }`}
+                          }`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => {}}
+                          onChange={() => { }}
                           className="w-4 h-4 rounded text-[#5352ED] focus:ring-[#5352ED] border-[#CBD5E1]"
                         />
                         <span>{opt}</span>
@@ -529,11 +570,10 @@ export default function ReflectionPage() {
                       key={opt}
                       type="button"
                       onClick={() => setFutureChange(opt)}
-                      className={`p-3.5 rounded-xl text-left text-xs border transition-all cursor-pointer ${
-                        futureChange === opt
+                      className={`p-3.5 rounded-xl text-left text-xs border transition-all cursor-pointer ${futureChange === opt
                           ? 'border-[#5352ED] bg-[#F5F2FF] text-[#0F172A] font-semibold shadow-xs'
                           : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]'
-                      }`}
+                        }`}
                     >
                       {opt}
                     </button>
@@ -551,11 +591,10 @@ export default function ReflectionPage() {
                       key={opt}
                       type="button"
                       onClick={() => setGuidanceRating(opt)}
-                      className={`px-4 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                        guidanceRating === opt
+                      className={`px-4 py-2.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${guidanceRating === opt
                           ? 'bg-[#5352ED] text-white border-[#5352ED] shadow-xs'
                           : 'bg-white text-[#475569] border-[#E2E8F0] hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       {opt}
                     </button>
@@ -578,13 +617,13 @@ export default function ReflectionPage() {
                     {submitting ? 'Saving Reflection...' : 'Save Reflection'}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className="bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xs font-semibold px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleGoBack}
+                      className="px-5 py-2.5 rounded-xl border border-[#E2E8F0] text-xs font-semibold text-[#64748B] hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
                 </div>
               </div>
             </div>

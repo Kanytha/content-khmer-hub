@@ -474,7 +474,8 @@ export default function RecommendationsPage() {
                                                             onClick={() => navigate('/ideas')}
                                                             className="text-[#5352ED] font-semibold flex items-center gap-1 hover:underline ml-2 shrink-0 cursor-pointer"
                                                         >
-                                                            {t('useInIdeas')} <FiArrowRight size={12} />
+                                                            {t('useInIdeas')} 
+                                                            {/* <FiArrowRight size={12} /> */}
                                                         </button>
                                                     </div>
                                                 ))}
