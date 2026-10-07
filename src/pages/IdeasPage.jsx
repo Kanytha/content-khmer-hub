@@ -13,7 +13,7 @@ import logo from '../assets/images/LOGO1-removebg-preview.png';
 import { 
   FiGrid, FiStar, FiEdit3, FiCompass, FiUser, 
   FiSettings, FiHelpCircle, FiX, FiPlus, 
-  FiMenu 
+  FiMenu, FiTrendingUp, FiZap, FiLayers
 } from 'react-icons/fi';
 import { LuCalendar } from 'react-icons/lu';
 import { MdDragIndicator } from 'react-icons/md';
@@ -308,7 +308,8 @@ export default function IdeasPage() {
           strongest_fit_id: compRes.strongest_fit_id || null,
           standout_title: compRes.standout_title,
           standout_reason: compRes.standout_reason,
-          relevant_context_note: compRes.relevant_context_note
+          relevant_context_note: compRes.relevant_context_note,
+          improvements: compRes.improvements || []
         });
       }
     } catch (err) {
@@ -746,6 +747,76 @@ export default function IdeasPage() {
                         {comparison.standout_reason}
                       </p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* --- CKH AI IDEA IMPROVEMENTS SECTION --- */}
+              {comparison?.improvements && comparison.improvements.length > 0 && (
+                <div className="space-y-4 pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-[#0F172A] flex items-center gap-2">
+                        <FiTrendingUp className="text-[#5352ED]" size={18} />
+                        How CKH Recommends Improving These Ideas
+                      </h3>
+                      <p className="text-xs text-[#64748B] mt-0.5">
+                        Actionable angles tailored from your creator profile, audience responses, and active trends.
+                      </p>
+                    </div>
+                    {isPremium && (
+                      <span className="self-start sm:self-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#F5F3FF] text-[#5352ED] border border-[#DDD9FE]">
+                        <FiZap size={12} /> External Signals Active
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {comparison.improvements.map((item, idx) => (
+                      <div 
+                        key={item.idea_id || idx}
+                        className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-3.5 hover:border-[#CBD5E1] transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                            Idea Upgrade
+                          </span>
+                          <span className="text-xs font-semibold text-[#5352ED] bg-[#EEF2FF] px-2.5 py-0.5 rounded-md truncate max-w-[200px]">
+                            {item.idea_title}
+                          </span>
+                        </div>
+
+                        {/* Suggested Hook */}
+                        <div className="bg-[#F8FAFC] border border-[#F1F5F9] p-3 rounded-xl space-y-1">
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#475569]">
+                            <FiZap className="text-[#5352ED]" size={13} />
+                            Suggested Hook / Title
+                          </div>
+                          <p className="text-xs font-medium text-[#0F172A] italic">
+                            "{item.suggested_hook}"
+                          </p>
+                        </div>
+
+                        {/* Actionable Upgrade */}
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-semibold text-[#64748B] block">
+                            Key Adjustment:
+                          </span>
+                          <p className="text-xs text-[#334155] leading-relaxed">
+                            {item.actionable_upgrade}
+                          </p>
+                        </div>
+
+                        {/* Why it works */}
+                        <div className="pt-2 border-t border-gray-100 flex items-start gap-1.5">
+                          <FiLayers className="text-[#94A3B8] shrink-0 mt-0.5" size={13} />
+                          <p className="text-[11px] text-[#64748B] leading-relaxed">
+                            <span className="font-semibold text-[#475569]">Why this fits: </span>
+                            {item.why_it_works}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
