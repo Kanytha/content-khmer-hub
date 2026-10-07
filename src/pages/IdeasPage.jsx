@@ -785,6 +785,17 @@ export default function IdeasPage() {
                             {item.idea_title}
                           </span>
                         </div>
+                        
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-bold text-[#5352ED] bg-[#EEF2FF] px-2 py-0.5 rounded-md uppercase">
+                            {context?.creator?.platform || 'Platform'} Native
+                          </span>
+                          {item.recommended_format_tweak && (
+                            <span className="text-[10px] font-medium text-[#475569] bg-[#F1F5F9] px-2 py-0.5 rounded-md">
+                              Format suggestion: {item.recommended_format_tweak}
+                            </span>
+                          )}
+                        </div>
 
                         {/* Suggested Hook */}
                         <div className="bg-[#F8FAFC] border border-[#F1F5F9] p-3 rounded-xl space-y-1">

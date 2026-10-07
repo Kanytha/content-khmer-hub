@@ -6,30 +6,97 @@ const genAI = new GoogleGenerativeAI(geminiApiKey);
 
 // 1. Gather creator context (Includes past reflections & tier status)
 export async function getCreatorContext(userId) {
-  const [profileRes, opportunitiesRes, reflectionsRes] = await Promise.all([
-    supabase.from('creator_profiles').select('*').eq('user_id', userId).single(),
-    supabase.from('opportunities').select('title, topics, type, deadline, start_date').limit(6),
-    supabase.from('reflections').select('recommendation_title, expectation_result, future_change, unexpected_notes').eq('user_id', userId).order('created_at', { ascending: false }).limit(3)
-  ]);
+  const [profileRes, opportunitiesRes, reflectionsRes, recentIdeasRes] =
+    await Promise.all([
+      supabase
+        .from('creator_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single(),
+
+      supabase
+        .from('opportunities')
+        .select('title, topics, type, deadline, start_date')
+        .limit(6),
+
+      supabase
+        .from('reflections')
+        .select(
+          'recommendation_title, expectation_result, future_change, unexpected_notes'
+        )
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(4),
+
+      supabase
+        .from('content_ideas')
+        .select('title, intended_format, format, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(6)
+    ]);
 
   const profile = profileRes.data || {};
   const answers = profile?.onboarding_answers || {};
-  const isPremium = Boolean(profile?.is_premium || profile?.subscription_status === 'active');
+
+  const isPremium = Boolean(
+    profile?.is_premium || profile?.subscription_status === 'active'
+  );
+
+  const recentFormats = (recentIdeasRes.data || [])
+    .map(i => i.intended_format || i.format)
+    .filter(Boolean);
 
   return {
     creator: {
-      topic: answers.topic || profile.focus || 'General',
-      platform: answers.primaryPlatform || profile.platform || 'TikTok / Facebook',
-      audience: answers.targetAudience || 'Cambodian youth & students',
-      goals: answers.primaryGoals?.[0] || 'Grow My Audience',
-      style: answers.personalityStyle || 'Engaging & Authentic',
-      isPremium: isPremium
+      topic:
+        profile.focus ||
+        answers.topic ||
+        'General',
+
+      platform:
+        profile.primary_platform ||
+        profile.platform ||
+        answers.primaryPlatform ||
+        answers.platform ||
+        'Unknown',
+
+      audience:
+        profile.target_audience ||
+        answers.targetAudience ||
+        'Cambodian youth & students',
+
+      goals:
+        profile.goal ||
+        answers.primaryGoals?.[0] ||
+        'Grow My Audience',
+
+      style:
+        answers.personalityStyle ||
+        'Engaging & Authentic',
+
+      isPremium
     },
+
     pastReflections: reflectionsRes.data || [],
+    recentIdeas: recentIdeasRes.data || [],
+    recentFormatsUsed: recentFormats,
+
     currentContext: {
-      focus: answers.topic || 'Education & Digital Content',
-      contextPeriod: 'Current cycle / Active creator season'
+      focus:
+        profile.focus ||
+        answers.topic ||
+        'General',
+
+      currentDate: new Date().toISOString(),
+
+      recentActivity: recentIdeasRes.data || [],
+
+      recentReflections: reflectionsRes.data || [],
+
+      opportunities: opportunitiesRes.data || []
     },
+
     opportunities: opportunitiesRes.data || []
   };
 }
@@ -65,6 +132,7 @@ IDEA:
 - Unsure/Concern: "${idea.concern || 'None'}"
 
 CRITICAL BREVITY RULES:
+- STRICT RULE: NEVER USE EMOJIS. Do not include any emoji, symbols, or emoticons anywhere in your response.
 - Keep every sentence punchy and under 15 words.
 - Provide practical creator coaching.
 
@@ -118,16 +186,21 @@ export async function compareIdeas(ideasWithEvals, context) {
   });
 
   const prompt = `
-You are the content strategist for Content Khmer Hub (CKH). 
-Compare these evaluated ideas, pick the standout winner, AND provide clear improvements for each idea so the creator knows how to make them significantly better.
+You are the lead content growth consultant for Content Khmer Hub (CKH).
+Compare these evaluated ideas, pick the standout winner, AND provide tailored platform-specific improvements for each idea.
 
-CREATOR GOAL: ${context.creator.goals}
-CREATOR PLATFORM: ${context.creator.platform}
-CREATOR NICHE: ${context.creator.topic}
-AUDIENCE: ${context.creator.audience}
-IS PREMIUM MEMBER: ${context.creator.isPremium}
+CRITICAL FORMATTING RULE:
+- NEVER USE EMOJIS. Absolutely zero emojis, icons, or pictorial symbols anywhere in hooks, titles, upgrades, or notes. Use clean plain text only.
 
-PAST AUDIENCE LEARNINGS (REFLECTIONS):
+CREATOR IDENTITY:
+- Primary Platform: ${context.creator.platform} (CRITICAL: All hook, format, and pacing recommendations MUST follow native best practices for ${context.creator.platform})
+- Main Niche: ${context.creator.topic}
+- Target Audience: ${context.creator.audience}
+- Primary Goal: ${context.creator.goals}
+- Recent Formats Published: ${JSON.stringify(context.recentFormatsUsed)}
+- Is Premium Creator: ${context.creator.isPremium}
+
+PAST REFLECTIONS & LEARNINGS:
 ${JSON.stringify(context.pastReflections)}
 
 ACTIVE TRENDS & OPPORTUNITIES:
@@ -138,34 +211,62 @@ ${JSON.stringify(ideasWithEvals.map(item => ({
   id: item.idea.id,
   title: item.idea.title,
   description: item.idea.description,
+  intended_format: item.idea.intended_format,
+  opening_hook: item.idea.opening_hook || 'Not specified',
+  target_action: item.idea.target_action || 'Not specified',
   concern: item.idea.concern,
   eval: item.eval
 })))}
 
-INSTRUCTIONS FOR IMPROVEMENTS:
-- Give a sharper hook (first 3 seconds / headline).
-- Give 1 concrete thing to add or adjust.
-- Explain why this improves performance based on their target audience and context.
-${context.creator.isPremium ? '- Include deeper external trend signals and retention tactics since they are a Premium member.' : '- Use CKH creator profile insights and audience alignment.'}
+STRATEGY GUIDELINES FOR CKH:
+1. PLATFORM-NATIVE TACTICS:
+   - TikTok / Reels: Optimize for 2-second visual/verbal hooks, high-speed delivery, sound/trend resonance.
+   - YouTube (Long form): Focus on clickable packaging (title/thumbnail angle) and mid-video retention payoff.
+   - Instagram Carousel: Focus on saveable slide checklists or visual swipe cues.
+   - Facebook: Focus on relatable storytelling that sparks community discussion in the comments.
 
-Return JSON with this exact structure:
+2. FORMAT DIVERSITY & FATIGUE DETECTION:
+   - Check "Recent Formats Published". If the creator has done multiple long-form videos recently, suggest testing a Short video or Carousel post to diversify reach and prevent creator burnout.
+
+Return valid JSON with this exact structure:
 {
   "strongest_fit_id": "the idea id of the top recommendation",
   "standout_title": "Title of the winning idea",
-  "standout_reason": "2 sentences explaining why this specific idea is the highest priority right now.",
-  "relevant_context_note": "A short note on why this timing matters.",
+  "standout_reason": "2 sentences explaining why this specific idea fits their current platform and goals best.",
+  "relevant_context_note": "A short note on why this timing matters right now.",
   "improvements": [
     {
       "idea_id": "matching idea id",
       "idea_title": "Idea title",
-      "suggested_hook": "A punchy opening hook or headline that stops the scroll.",
-      "actionable_upgrade": "What specific angle or structure to add to make this stronger.",
-      "why_it_works": "Why this will perform better with their specific audience."
+      "suggested_hook": "Platform-native opening hook tailored for ${context.creator.platform} (first 3 seconds or headline). Plain text only, NO EMOJIS.",
+      "recommended_format_tweak": "Suggested format pivot if fatigue is detected (e.g. 'Pivot to 45s Short' or 'Keep as Carousel'). Plain text only.",
+      "actionable_upgrade": "Concrete advice on what to cut, add, or change in structure. Plain text only, NO EMOJIS.",
+      "why_it_works": "Why this specific strategy succeeds on ${context.creator.platform} with their audience. Plain text only, NO EMOJIS."
     }
   ]
 }
 `;
 
   const result = await model.generateContent(prompt);
-  return JSON.parse(result.response.text());
+  const parsed = JSON.parse(result.response.text());
+
+  const cleanText = (str) =>
+    typeof str === 'string'
+      ? str.replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '').replace(/\s+/g, ' ').trim()
+      : str;
+
+  if (parsed.improvements && Array.isArray(parsed.improvements)) {
+    parsed.improvements = parsed.improvements.map(item => ({
+      ...item,
+      suggested_hook: cleanText(item.suggested_hook),
+      recommended_format_tweak: cleanText(item.recommended_format_tweak),
+      actionable_upgrade: cleanText(item.actionable_upgrade),
+      why_it_works: cleanText(item.why_it_works)
+    }));
+  }
+
+  if (parsed.standout_reason) parsed.standout_reason = cleanText(parsed.standout_reason);
+  if (parsed.relevant_context_note) parsed.relevant_context_note = cleanText(parsed.relevant_context_note);
+
+  return parsed;
 }
