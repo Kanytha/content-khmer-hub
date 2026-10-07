@@ -65,11 +65,17 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
 
       let list = [];
 
+      const normalizedLocalNotifs = localDynamicNotifs.map(item => ({
+        ...item,
+        created_at: item.created_at || item.timestamp || item.date || new Date().toISOString()
+      }));
+
       if (!error && data && data.length > 0) {
         list = [
-          ...localDynamicNotifs,
+          ...normalizedLocalNotifs,
           ...data.map(item => ({
             ...item,
+            created_at: item.created_at || new Date().toISOString(),
             is_read: item.is_read || readSet.has(item.id)
           }))
         ];
@@ -98,7 +104,7 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
         localStorage.setItem(storageKey, JSON.stringify(starterDates));
 
         list = [
-          ...localDynamicNotifs,
+          ...normalizedLocalNotifs,
           {
             id: 'starter-opp',
             user_id: userId,
@@ -210,16 +216,18 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
   };
 
   const getDayBucket = (dateString) => {
+    if (!dateString) return 'today';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'today';
+
     const now = new Date();
-    
     const targetMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const oneDayMs = 24 * 60 * 60 * 1000;
 
-    const diffDays = Math.round((todayMidnight - targetMidnight) / oneDayMs);
+    const diffDays = Math.floor((todayMidnight - targetMidnight) / oneDayMs);
 
-    if (diffDays === 0) return 'today';
+    if (diffDays <= 0) return 'today';
     if (diffDays === 1) return 'yesterday';
     return 'earlier';
   };
@@ -338,7 +346,11 @@ export default function NotificationCenter({ userId, isPremium = false, userNich
                       Earlier
                     </p>
                     <div className="space-y-3">
-                      {earlierNotifs.map((item) => renderNotificationItem(item, new Date(item.created_at).toLocaleDateString()))}
+                        {earlierNotifs.map((item) => {
+                          const d = new Date(item.created_at);
+                          const formattedDate = !isNaN(d.getTime()) ? d.toLocaleDateString() : 'Earlier';
+                          return renderNotificationItem(item, formattedDate);
+                        })}
                     </div>
                   </div>
                 )}
