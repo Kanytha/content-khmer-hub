@@ -10,13 +10,21 @@ import { useLanguage } from '../context/LanguageContext';
 import EditContextModal from "../components/EditContextModal";
 import SettingsPopover from "../components/SettingsPopover";
 import logo from '../assets/images/LOGO1-removebg-preview.png';
-import { 
-  FiGrid, FiStar, FiEdit3, FiCompass, FiUser, 
-  FiSettings, FiHelpCircle, FiX, FiPlus, 
+import {
+  FiGrid, FiStar, FiEdit3, FiCompass, FiUser,
+  FiSettings, FiHelpCircle, FiX, FiPlus,
   FiMenu, FiTrendingUp, FiZap, FiLayers
 } from 'react-icons/fi';
 import { LuCalendar } from 'react-icons/lu';
 import { MdDragIndicator } from 'react-icons/md';
+
+const cleanDisplay = (text) => {
+  if (!text || typeof text !== 'string') return text || '';
+  return text
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
 
 export default function IdeasPage() {
   const navigate = useNavigate();
@@ -73,8 +81,8 @@ export default function IdeasPage() {
         'Creator';
 
       const parts = resolvedName.trim().split(/\s+/);
-      const computedInitials = parts.length > 1 
-        ? (parts[0][0] + parts[1][0]).toUpperCase() 
+      const computedInitials = parts.length > 1
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
         : resolvedName.slice(0, 2).toUpperCase();
       setInitials(computedInitials);
 
@@ -87,7 +95,7 @@ export default function IdeasPage() {
           .from('creator_profiles')
           .update({ avatar_url: googlePhoto })
           .eq('user_id', user.id)
-          .then(() => {});
+          .then(() => { });
       }
 
       const validAvatar = (typeof resolvedAvatar === 'string' && resolvedAvatar.trim().length > 5)
@@ -192,14 +200,14 @@ export default function IdeasPage() {
 
       if (data) {
         setIdeas(prev => prev.map(item => (item.id === data.id ? data : item)));
-        
+
         setEvaluations(prev => {
           const next = { ...prev };
           delete next[data.id];
           return next;
         });
       }
-    } 
+    }
 
     else {
       const { data, error } = await supabase
@@ -298,7 +306,7 @@ export default function IdeasPage() {
       }));
 
       const compRes = await compareIdeas(preparedList, context, language);
-      
+
       if (compRes) {
         setComparison(compRes);
         localStorage.setItem(`ckh_comparison_${userId}`, JSON.stringify(compRes));
@@ -333,9 +341,9 @@ export default function IdeasPage() {
       <div>
         <div className="px-2 mb-10 flex justify-between items-center">
           <img src={logo} alt="Logo" className="h-12 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
-          <button 
+          <button
             type="button"
-            onClick={onClose} 
+            onClick={onClose}
             className="md:hidden text-[#64748B] hover:text-[#0F172A] transition-colors"
           >
             <FiX size={24} />
@@ -343,13 +351,13 @@ export default function IdeasPage() {
         </div>
 
         <nav className="space-y-1 text-sm font-semibold text-[#64748B]">
-          <div 
+          <div
             onClick={() => { onClose?.(); navigate('/dashboard'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
             <FiGrid size={18} /> {t('dashboard')}
           </div>
-          <div 
+          <div
             onClick={() => { onClose?.(); navigate('/recommendations'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
@@ -358,13 +366,13 @@ export default function IdeasPage() {
           <div className="flex items-center gap-3 bg-[#FFFFFF] text-[#5352ED] px-4 py-3 rounded-xl cursor-pointer shadow-xs transition-all duration-300 font-semibold">
             <FiEdit3 size={18} /> {t('ideas')}
           </div>
-          <div 
+          <div
             onClick={() => { onClose?.(); navigate('/opportunities'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
             <FiCompass size={18} /> {t('opportunities')}
           </div>
-          <div 
+          <div
             onClick={() => { onClose?.(); navigate('/profile'); }}
             className="flex items-center gap-3 px-4 py-3 hover:bg-[#FFFFFF] hover:text-[#0F172A] hover:shadow-xs rounded-xl cursor-pointer transition-all duration-300 font-semibold"
           >
@@ -421,38 +429,38 @@ export default function IdeasPage() {
   };
 
   const translateMetric = (metric) => {
-  if (!metric) return '';
+    if (!metric) return '';
 
-  const metricMap = {
-    // Quality ratings
-    'Strong': t('metricStrong'),
-    'Very High': t('metricVeryHigh'),
-    'Good': t('metricGood'),
-    'Moderate': t('metricModerate'),
-    'Low': t('metricLow'),
-    'Limited': t('metricLimited'),
+    const metricMap = {
+      // Quality ratings
+      'Strong': t('metricStrong'),
+      'Very High': t('metricVeryHigh'),
+      'Good': t('metricGood'),
+      'Moderate': t('metricModerate'),
+      'Low': t('metricLow'),
+      'Limited': t('metricLimited'),
 
-    // Format options
-    'Short video': t('formatShortVideo'),
-    'Short Video': t('formatShortVideo'),
-    'Long video': t('formatLongVideo'),
-    'Long Video': t('formatLongVideo'),
-    'Photo post': t('formatPhotoPost'),
-    'Photo Post': t('formatPhotoPost'),
-    'Carousel': t('formatCarousel'),
-    'Text post': t('formatTextPost'),
-    'Text Post': t('formatTextPost'),
-    'Live stream': t('formatLiveStream'),
-    'Live Stream': t('formatLiveStream'),
-    'Not sure yet': t('formatNotSure')
+      // Format options
+      'Short video': t('formatShortVideo'),
+      'Short Video': t('formatShortVideo'),
+      'Long video': t('formatLongVideo'),
+      'Long Video': t('formatLongVideo'),
+      'Photo post': t('formatPhotoPost'),
+      'Photo Post': t('formatPhotoPost'),
+      'Carousel': t('formatCarousel'),
+      'Text post': t('formatTextPost'),
+      'Text Post': t('formatTextPost'),
+      'Live stream': t('formatLiveStream'),
+      'Live Stream': t('formatLiveStream'),
+      'Not sure yet': t('formatNotSure')
+    };
+
+    return metricMap[metric] || metric;
   };
-
-  return metricMap[metric] || metric;
-};
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden text-[#0F172A]">
-      
+
       {/* Sticky Mobile Header */}
       <div className="md:hidden sticky top-0 z-30 flex items-center justify-between p-4 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-xs shadow-2xs">
         <img src={logo} alt="Logo" className="h-8 w-auto object-contain cursor-pointer" onClick={() => navigate('/dashboard')} />
@@ -462,9 +470,9 @@ export default function IdeasPage() {
             isPremium={isPremium}
             userNiche={context?.creator?.topic || ''}
           />
-          <button 
+          <button
             type="button"
-            onClick={() => setIsMobileMenuOpen(true)} 
+            onClick={() => setIsMobileMenuOpen(true)}
             className="p-2 text-[#0F172A] hover:text-[#5352ED] transition-colors"
           >
             <FiMenu size={22} />
@@ -474,8 +482,8 @@ export default function IdeasPage() {
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div 
-            className="fixed inset-0 bg-black/30 backdrop-blur-xs transition-opacity" 
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMobileMenuOpen(false)}
           />
           <div className="relative w-[260px] max-w-sm bg-[#F5F2FF] h-full shadow-2xl">
@@ -485,12 +493,12 @@ export default function IdeasPage() {
       )}
 
       <div className="hidden md:block w-[250px] lg:w-[260px] h-full bg-[#F5F2FF] border-r border-[#E2E8F0] shrink-0 z-10">
-        <SidebarContent onClose={() => {}} />
+        <SidebarContent onClose={() => { }} />
       </div>
 
       <div className="flex-1 h-full overflow-y-auto bg-[#FFFFFF]">
         <div className="w-full max-w-6xl mx-auto px-6 sm:px-10 lg:px-12 py-6 space-y-6">
-          
+
           {/* Desktop Topbar */}
           <div className="justify-end items-center gap-5 hidden md:flex">
             <NotificationCenter
@@ -498,15 +506,15 @@ export default function IdeasPage() {
               isPremium={isPremium}
               userNiche={context?.creator?.topic || ''}
             />
-            <div 
+            <div
               onClick={() => navigate('/profile')}
               className="w-9 h-9 rounded-full border border-[#E2E8F0] flex items-center justify-center overflow-hidden cursor-pointer shadow-2xs shrink-0"
             >
               {avatarUrl ? (
-                <img 
-                  src={avatarUrl} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover" 
+                <img
+                  src={avatarUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="w-full h-full bg-[#FFF0F5] text-[#ED4B9E] flex items-center justify-center text-xs font-semibold">
@@ -645,8 +653,8 @@ export default function IdeasPage() {
                   const { bg, text } = getBadgeColors(ev.alignment_badge);
 
                   return (
-                    <div 
-                      key={idea.id} 
+                    <div
+                      key={idea.id}
                       className="bg-white border border-[#E5E7EB] rounded-2xl flex flex-col justify-between overflow-hidden transition-all font-normal shadow-2xs"
                     >
                       <div className="p-6 space-y-4">
@@ -738,7 +746,7 @@ export default function IdeasPage() {
                       <h3 className="text-xl font-semibold text-[#1E293B]">
                         {t('whatStandsOut')}
                       </h3>
-                      
+
                       <div className="text-base text-[#1E293B] leading-snug">
                         <strong className="font-semibold">{comparison.standout_title}</strong> {t('strongestFitSuffix')}
                       </div>
@@ -773,7 +781,7 @@ export default function IdeasPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {comparison.improvements.map((item, idx) => (
-                      <div 
+                      <div
                         key={item.idea_id || idx}
                         className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-3.5 hover:border-[#CBD5E1] transition-all"
                       >
@@ -782,17 +790,17 @@ export default function IdeasPage() {
                             Idea Upgrade
                           </span>
                           <span className="text-xs font-semibold text-[#5352ED] bg-[#EEF2FF] px-2.5 py-0.5 rounded-md truncate max-w-[200px]">
-                            {item.idea_title}
+                            {cleanDisplay(item.idea_title)}
                           </span>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[10px] font-bold text-[#5352ED] bg-[#EEF2FF] px-2 py-0.5 rounded-md uppercase">
                             {context?.creator?.platform || 'Platform'} Native
                           </span>
                           {item.recommended_format_tweak && (
                             <span className="text-[10px] font-medium text-[#475569] bg-[#F1F5F9] px-2 py-0.5 rounded-md">
-                              Format suggestion: {item.recommended_format_tweak}
+                              Format suggestion: {cleanDisplay(item.recommended_format_tweak)}
                             </span>
                           )}
                         </div>
@@ -804,7 +812,7 @@ export default function IdeasPage() {
                             Suggested Hook / Title
                           </div>
                           <p className="text-xs font-medium text-[#0F172A] italic">
-                            "{item.suggested_hook}"
+                            "{cleanDisplay(item.suggested_hook)}"
                           </p>
                         </div>
 
@@ -814,7 +822,7 @@ export default function IdeasPage() {
                             Key Adjustment:
                           </span>
                           <p className="text-xs text-[#334155] leading-relaxed">
-                            {item.actionable_upgrade}
+                            {cleanDisplay(item.actionable_upgrade)}
                           </p>
                         </div>
 
@@ -823,7 +831,7 @@ export default function IdeasPage() {
                           <FiLayers className="text-[#94A3B8] shrink-0 mt-0.5" size={13} />
                           <p className="text-[11px] text-[#64748B] leading-relaxed">
                             <span className="font-semibold text-[#475569]">Why this fits: </span>
-                            {item.why_it_works}
+                            {cleanDisplay(item.why_it_works)}
                           </p>
                         </div>
                       </div>
@@ -836,9 +844,9 @@ export default function IdeasPage() {
                 <h2 className="text-base font-semibold text-[#1E293B] tracking-tight">
                   {t('wantToExploreAngles')}
                 </h2>
-                
+
                 <div className="flex justify-center">
-                  <button 
+                  <button
                     onClick={handleCompareIdeas}
                     className="bg-white border border-[#D1D5DB] text-[#1E293B] px-6 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors shadow-2xs"
                   >
