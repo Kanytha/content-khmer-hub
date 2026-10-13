@@ -25,6 +25,7 @@ export default function EditProfilePage() {
   const [selectedChallenges, setSelectedChallenges] = useState([]);
   const [selectedSupport, setSelectedSupport] = useState([]);
   const [aiInferredContext, setAiInferredContext] = useState(null);
+  const [originalOnboardingAnswers, setOriginalOnboardingAnswers] = useState({});
 
   const topicOptions = [
     'Education', 'Lifestyle', 'Gaming', 'Business', 'Beauty', 
@@ -131,35 +132,38 @@ export default function EditProfilePage() {
         const userIdeas = ideasRes.data || [];
         const latestComp = compRes.data || null;
 
+        const savedAnswers = pfData.onboarding_answers || localOnboarding?.onboarding_answers || localOnboarding || {};
+        setOriginalOnboardingAnswers(savedAnswers);
+
         const merged = {
           ...meta,
+          ...obData,
           ...localOnboarding,
-          ...pfData,
-          ...obData
+          ...savedAnswers,
+          ...pfData
         };
 
         const rawTopic = 
           merged.creator_focus || 
-          merged.focus || 
           merged.topic || 
           merged.topics || 
-          'Education';
+          '';
         const parsedTopics = parseValue(rawTopic);
-        const topicString = parsedTopics[0] ? String(parsedTopics[0]) : 'Education';
+        const topicString = parsedTopics[0] ? String(parsedTopics[0]) : '';
         const cleanTopic = topicString.includes('&') ? topicString.split('&')[0].trim() : topicString.trim();
-        const matchedTopic = topicOptions.find(t => t.toLowerCase() === cleanTopic.toLowerCase()) || topicOptions[0];
+        const matchedTopic = topicOptions.find(t => t.toLowerCase() === cleanTopic.toLowerCase()) || '';
         setSelectedTopic(matchedTopic);
 
         const rawPlatform = 
-          merged.primary_platform || 
           merged.platform || 
+          merged.primary_platform || 
           merged.platforms || 
           merged.main_platform || 
-          'YouTube';
+          '';
         const parsedPlatforms = parseValue(rawPlatform);
         const platformString = (parsedPlatforms[0] ? String(parsedPlatforms[0]) : 'YouTube').toLowerCase().trim();
         
-        let resolvedPlatform = 'YouTube';
+        let resolvedPlatform = '';
         if (platformString.includes('yt') || platformString.includes('youtube')) resolvedPlatform = 'YouTube';
         else if (platformString.includes('tiktok')) resolvedPlatform = 'TikTok';
         else if (platformString.includes('insta')) resolvedPlatform = 'Instagram';
@@ -167,30 +171,33 @@ export default function EditProfilePage() {
         setSelectedPlatform(resolvedPlatform);
 
         const rawGoals = 
-          merged.current_goal || 
           merged.goals || 
-          merged.goal || 
+          merged.primaryGoals ||
           merged.primary_goals || 
-          ['Reach More People', 'Increase Engagement'];
+          merged.current_goal || 
+          merged.goal || 
+          [];
         const parsedGoals = parseValue(rawGoals);
         const matchedGoals = goalOptions
           .filter(opt => parsedGoals.some(g => String(g).toLowerCase().trim() === opt.label.toLowerCase().trim()))
           .map(opt => opt.label);
-        setSelectedGoals(matchedGoals.length > 0 ? matchedGoals.slice(0, 2) : ['Reach More People', 'Increase Engagement']);
+        setSelectedGoals(matchedGoals.slice(0, 2));
 
         const rawSituation = 
           merged.current_situation || 
           merged.situation || 
+          merged.recentSituation ||
           merged.recent_situation || 
           merged.whats_been_happening || 
           merged.content_status || 
           "";
         const situationString = Array.isArray(rawSituation) ? (rawSituation[0] || "") : String(rawSituation);
-        const matchedSituation = situationOptions.find(s => s.toLowerCase().trim() === situationString.toLowerCase().trim()) || situationOptions[1];
+        const matchedSituation = situationOptions.find(s => s.toLowerCase().trim() === situationString.toLowerCase().trim()) || '';
         setRecentSituation(matchedSituation);
 
         const rawChallenges = 
           merged.biggest_challenge || 
+          merged.biggestChallenge ||
           merged.challenges || 
           merged.challenge || 
           merged.biggest_challenges || 
@@ -199,10 +206,11 @@ export default function EditProfilePage() {
         const matchedChallenges = challengeOptions.filter(ch => 
           parsedChallenges.some(p => String(p).toLowerCase().trim() === ch.toLowerCase().trim())
         );
-        setSelectedChallenges(matchedChallenges.length > 0 ? matchedChallenges.slice(0, 2) : [challengeOptions[3]]);
+        setSelectedChallenges(matchedChallenges.slice(0, 2));
 
         const rawSupport = 
           merged.needed_support || 
+          merged.supportNeeded ||
           merged.support || 
           merged.support_needed || 
           merged.support_type || 
@@ -211,7 +219,7 @@ export default function EditProfilePage() {
         const matchedSupport = supportOptions.filter(sp => 
           parsedSupport.some(p => String(p).toLowerCase().trim() === sp.toLowerCase().trim())
         );
-        setSelectedSupport(matchedSupport.length > 0 ? matchedSupport.slice(0, 2) : [supportOptions[0]]);
+        setSelectedSupport(matchedSupport.slice(0, 2));
 
         if (latestComp?.relevant_context_note) {
           setAiInferredContext(latestComp.relevant_context_note);
@@ -276,66 +284,95 @@ export default function EditProfilePage() {
     try {
       setSaving(true);
 
-      const onboardingPayload = {
-        user_id: userId,
-        creator_focus: selectedTopic,
-        primary_platform: selectedPlatform,
-        current_goal: selectedGoals[0] || 'Reach More People',
-        goals: selectedGoals,
-        current_situation: recentSituation,
-        biggest_challenge: selectedChallenges,
-        needed_support: selectedSupport,
-        content_topics: [selectedTopic, 'Content Creation']
+      
+      const updatedAnswers = {
+        ...originalOnboardingAnswers,
+        topic: selectedTopic,
+        platform: selectedPlatform,
+        primaryGoals: selectedGoals,
+        recentSituation,
+        biggestChallenge: selectedChallenges,
+        supportNeeded: selectedSupport
       };
 
-      const profilePayload = {
-        user_id: userId,
-        focus: selectedTopic,
+      const { error: profileError } = await supabase
+        .from('creator_profiles')
+        .update({ onboarding_answers: updatedAnswers })
+        .eq('user_id', userId);
+
+      if (profileError) throw profileError;
+
+      const { data: existingResponse, error: lookupError } = await supabase
+  .from('onboarding_responses')
+  .select('user_id')
+  .eq('user_id', userId)
+  .maybeSingle();
+
+if (lookupError) throw lookupError;
+
+const onboardingPayload = {
+  user_id: userId,
+  creator_focus: selectedTopic,
+  primary_platform: selectedPlatform,
+  current_goal: selectedGoals[0] || '',
+  content_topics: selectedTopic ? [selectedTopic] : []
+};
+
+const { error: onboardingError } = existingResponse
+  ? await supabase
+      .from('onboarding_responses')
+      .update(onboardingPayload)
+      .eq('user_id', userId)
+  : await supabase
+      .from('onboarding_responses')
+      .insert(onboardingPayload);
+
+if (onboardingError) throw onboardingError;
+
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
+          topic: selectedTopic,
+          platform: selectedPlatform,
+          primary_platform: selectedPlatform,
+          goals: selectedGoals,
+          primaryGoals: selectedGoals,
+          situation: recentSituation,
+          recentSituation,
+          challenges: selectedChallenges,
+          biggestChallenge: selectedChallenges,
+          support: selectedSupport,
+          supportNeeded: selectedSupport
+        }
+      });
+
+      if (metadataError) {
+        throw metadataError;
+      }
+
+      const updatedLocal = {
         topic: selectedTopic,
         platform: selectedPlatform,
         primary_platform: selectedPlatform,
-        goal: selectedGoals[0] || 'Reach More People',
+        primaryGoals: selectedGoals,
         goals: selectedGoals,
+        recentSituation,
         situation: recentSituation,
-        biggest_challenge: selectedChallenges,
-        needed_support: selectedSupport,
-        topics: [selectedTopic, 'Content Creation']
-      };
-
-      await Promise.all([
-        supabase.from('onboarding_responses').upsert(onboardingPayload, { onConflict: 'user_id' }),
-        supabase.from('creator_profiles').upsert(profilePayload, { onConflict: 'user_id' }),
-        supabase.auth.updateUser({
-          data: {
-            focus: selectedTopic,
-            platform: selectedPlatform,
-            goal: selectedGoals[0],
-            goals: selectedGoals,
-            situation: recentSituation,
-            challenges: selectedChallenges,
-            support: selectedSupport
-          }
-        })
-      ]);
-
-      const updatedLocal = {
-        creator_focus: selectedTopic,
-        primary_platform: selectedPlatform,
-        current_goal: selectedGoals[0],
-        goals: selectedGoals,
-        current_situation: recentSituation,
-        biggest_challenge: selectedChallenges,
-        needed_support: selectedSupport
+        biggestChallenge: selectedChallenges,
+        supportNeeded: selectedSupport,
+        onboarding_answers: updatedAnswers
       };
       localStorage.setItem('onboardingData', JSON.stringify(updatedLocal));
       localStorage.setItem(`onboarding_${userId}`, JSON.stringify(updatedLocal));
+      setOriginalOnboardingAnswers(updatedLocal.onboarding_answers);
 
       navigate('/profile');
     } catch (err) {
-      console.error(err);
+      console.error('Could not save creator profile:', err);
+      alert(`Could not save your changes: ${err.message || 'Please try again.'}`);
     } finally {
       setSaving(false);
     }
+
   };
 
   const SidebarContent = ({ onClose }) => (

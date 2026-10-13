@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { useSubscription } from '../hooks/useSubscription';
@@ -32,18 +32,17 @@ export default function ProfilePage() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const [creatorProfile, setCreatorProfile] = useState({
-        focus: 'Educational & Digital Content',
-        goal: 'Grow My Audience',
-        platform: 'YouTube',
-        topics: ['Education', 'Digital Tools', 'How-to Content']
+        focus: '',
+        goal: '',
+        platform: '',
+        topics: []
     });
+    const [profileLoaded, setProfileLoaded] = useState(false);
 
     const [observations, setObservations] = useState([]);
+    const isMountedRef = useRef(true);
 
-    useEffect(() => {
-        let isMounted = true;
-
-        async function loadPersonalizedProfile() {
+    async function loadPersonalizedProfile() {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 const authUser = session?.user;
@@ -52,7 +51,7 @@ export default function ProfilePage() {
                     return;
                 }
 
-                if (isMounted) setCurrentUser(authUser);
+                if (isMountedRef.current) setCurrentUser(authUser);
 
                 const meta = authUser.user_metadata || {};
 
@@ -73,6 +72,12 @@ export default function ProfilePage() {
                 ]);
 
                 const dbProfile = profileRes.data || {};
+                const obData = onboardingRes.data || {};
+                const userIdeas = ideasRes.data || [];
+                const userComparisons = compRes.data || [];
+
+                const obAnswers = dbProfile?.onboarding_answers || localOnboarding?.onboarding_answers || localOnboarding || {};
+                const merged = { ...meta, ...obData, ...localOnboarding, ...obAnswers, ...dbProfile };
 
                 const displayName =
                     dbProfile?.username ||
@@ -83,72 +88,84 @@ export default function ProfilePage() {
                     authUser.email?.split('@')[0] ||
                     'Creator';
 
-                if (isMounted) setUsername(displayName);
+                if (isMountedRef.current) setUsername(displayName);
 
                 const parts = displayName.trim().split(/\s+/);
                 const derivedInitials = parts.length > 1
                     ? (parts[0][0] + parts[1][0]).toUpperCase()
                     : displayName.slice(0, 2).toUpperCase();
 
-                if (isMounted) setInitials(derivedInitials);
+                if (isMountedRef.current) setInitials(derivedInitials);
 
                 const rawAvatar =
                     dbProfile?.avatar_url ||
                     meta.avatar_url ||
                     meta.picture ||
-                    localStorage.getItem(`user_avatar_url_${authUser.id}`);
+                    localStorage.getItem(`user_avatar_url_${authUser.id}`) ||
+                    localStorage.getItem('user_avatar_url');
 
                 const validAvatar = (typeof rawAvatar === 'string' && rawAvatar.trim().length > 5)
                     ? rawAvatar.trim()
                     : null;
 
-                if (isMounted) {
-                    setAvatarUrl(validAvatar);
-                }
-                const obData = onboardingRes.data || {};
-                const userIdeas = ideasRes.data || [];
-                const userComparisons = compRes.data || [];
+                if (isMountedRef.current) setAvatarUrl(validAvatar);
 
-                const merged = { ...meta, ...localOnboarding, ...dbProfile, ...obData };
 
-                let rawPlatform =
-                    merged.primary_platform ||
-                    merged.platform ||
-                    merged.platforms ||
-                    merged.main_platform ||
-                    'YouTube';
+                const rawPlatform =
+                    obAnswers?.platform ||
+                    obAnswers?.primaryPlatform ||
+                    obData?.primary_platform ||
+                    dbProfile?.platform ||
+                    dbProfile?.primary_platform ||
+                    meta.platform ||
+                    '';
 
-                if (Array.isArray(rawPlatform) && rawPlatform.length > 0) rawPlatform = rawPlatform[0];
-                let resolvedPlatform = 'YouTube';
-                if (typeof rawPlatform === 'string') {
+                let resolvedPlatform = rawPlatform;
+
+                if (typeof rawPlatform === 'string' && rawPlatform.trim()) {
                     const lower = rawPlatform.toLowerCase().trim();
-                    if (lower.includes('yt') || lower.includes('youtube')) resolvedPlatform = 'YouTube';
-                    else if (lower.includes('tiktok')) resolvedPlatform = 'TikTok';
+
+                    if (lower.includes('tiktok')) resolvedPlatform = 'TikTok';
+                    else if (lower.includes('youtube') || lower === 'yt') resolvedPlatform = 'YouTube';
                     else if (lower.includes('insta')) resolvedPlatform = 'Instagram';
-                    else if (lower.includes('face') || lower.includes('fb')) resolvedPlatform = 'Facebook';
+                    else if (lower.includes('facebook') || lower === 'fb') resolvedPlatform = 'Facebook';
                     else resolvedPlatform = rawPlatform.trim();
                 }
 
                 let detectedFocus =
-                    merged.creator_focus ||
-                    merged.focus ||
-                    merged.topic ||
-                    'Education';
+                    obAnswers?.topic ||
+                    obAnswers?.creator_focus ||
+                    obData?.creator_focus ||
+                    dbProfile?.topic ||
+                    dbProfile?.focus ||
+                    meta.topic ||
+                    '';
 
-                if (Array.isArray(detectedFocus) && detectedFocus.length > 0) detectedFocus = detectedFocus[0];
+                if (Array.isArray(detectedFocus)) {
+                    detectedFocus = detectedFocus[0] || '';
+                }
+
                 if (typeof detectedFocus === 'string' && detectedFocus.includes('&')) {
                     detectedFocus = detectedFocus.split('&')[0].trim();
                 }
 
                 let detectedGoal =
-                    merged.current_goal ||
-                    merged.goal ||
-                    merged.goals ||
-                    'Grow My Audience';
+                    obAnswers?.primaryGoals ||
+                    obAnswers?.primary_goals ||
+                    obAnswers?.goals ||
+                    obData?.goals ||
+                    obData?.current_goal ||
+                    dbProfile?.goal ||
+                    dbProfile?.goals ||
+                    meta.goals ||
+                    '';
 
-                if (Array.isArray(detectedGoal) && detectedGoal.length > 0) detectedGoal = detectedGoal[0];
+                if (Array.isArray(detectedGoal)) {
+                    detectedGoal = detectedGoal[0] || '';
+                }
 
-                let rawTopics = merged.content_topics || merged.topics || [];
+
+                let rawTopics = dbProfile?.content_topics || dbProfile?.topics || obAnswers?.content_topics || [];
                 if (typeof rawTopics === 'string') {
                     try { rawTopics = JSON.parse(rawTopics); } catch (e) { rawTopics = rawTopics.split(',').map(t => t.trim()); }
                 }
@@ -165,14 +182,17 @@ export default function ProfilePage() {
                 }
 
                 if (!rawTopics || rawTopics.length === 0) {
-                    rawTopics = [detectedFocus, 'Content Strategy'];
+                    const fallbackList = [];
+                    if (detectedFocus) fallbackList.push(detectedFocus);
+                    if (obAnswers?.presentation) fallbackList.push(obAnswers.presentation);
+                    rawTopics = fallbackList;
                 }
 
-                if (isMounted) {
+                if (isMountedRef.current) {
                     setCreatorProfile({
-                        focus: detectedFocus,
-                        goal: detectedGoal,
-                        platform: resolvedPlatform,
+                        focus: detectedFocus || '',
+                        goal: detectedGoal || '',
+                        platform: resolvedPlatform || '',
                         topics: rawTopics
                     });
 
@@ -220,8 +240,9 @@ export default function ProfilePage() {
                         });
                     }
 
-                    const userSituation = merged.current_situation || merged.situation;
-                    const userChallenge = Array.isArray(merged.biggest_challenge) ? merged.biggest_challenge[0] : merged.biggest_challenge;
+                    const userSituation = dbProfile.situation || obData.current_situation || obAnswers.recentSituation || merged.current_situation || merged.situation;
+                    const rawChallenge = dbProfile.biggest_challenge || obData.biggest_challenge || obAnswers.biggestChallenge || merged.biggest_challenge;
+                    const userChallenge = Array.isArray(rawChallenge) ? rawChallenge[0] : rawChallenge;
 
                     if (userSituation && userChallenge) {
                         derivedObs.push({
@@ -237,55 +258,23 @@ export default function ProfilePage() {
                             text: `Your stated stage is: "${userSituation}".`,
                             verified: true
                         });
-                    } else if (userChallenge) {
-                        derivedObs.push({
-                            id: 'real-challenge',
-                            icon: 'save',
-                            text: `CKH is tuned to assist you with ${userChallenge.toLowerCase()}.`,
-                            verified: true
-                        });
-                    }
-
-                    const wordFrequency = {};
-                    userIdeas.forEach(i => {
-                        const words = i.title.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, ''));
-                        words.forEach(w => {
-                            if (w.length > 3 && !['video', 'make', 'about', 'with', 'this', 'that', 'from', 'your'].includes(w)) {
-                                wordFrequency[w] = (wordFrequency[w] || 0) + 1;
-                            }
-                        });
-                    });
-                    const repeatedTheme = Object.keys(wordFrequency).find(w => wordFrequency[w] >= 2);
-
-                    if (repeatedTheme) {
-                        derivedObs.push({
-                            id: 'real-pattern',
-                            icon: 'explore',
-                            text: `CKH detected repeated focus on "${repeatedTheme}" across your recent topics.`,
-                            verified: true
-                        });
-                    }
-
-                    if (derivedObs.length === 0) {
-                        derivedObs.push({
-                            id: 'initial-state',
-                            icon: 'explore',
-                            text: `You just set up your profile targeting ${resolvedPlatform} with a primary goal to ${detectedGoal.toLowerCase()}. CKH will discover deeper patterns as you evaluate ideas.`,
-                            verified: true
-                        });
                     }
 
                     setObservations(derivedObs);
+                    setProfileLoaded(true);
                 }
             } catch (err) {
                 console.error(err);
+            } finally {
+                if (isMountedRef.current) setProfileLoaded(true);
             }
         }
 
+    useEffect(() => {
+        isMountedRef.current = true;
         loadPersonalizedProfile();
-
         return () => {
-            isMounted = false;
+            isMountedRef.current = false;
         };
     }, [navigate]);
 

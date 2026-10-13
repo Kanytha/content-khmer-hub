@@ -119,25 +119,44 @@ export default function Onboarding() {
           user.email?.split('@')[0] ||
           'Creator';
 
-        const { error } = await supabase
-          .from('creator_profiles')
-          .upsert({
-            user_id: user.id,
-            full_name: signupUsername,
-            username: signupUsername,
-            onboarding_answers: selections,
-            current_focus: aiData.current_focus,
-            active_recommendations: aiData.active_recommendations,
-            last_refreshed_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
+        const profilePayload = {
+          user_id: user.id,
+          full_name: signupUsername,
+          username: signupUsername,
+          onboarding_answers: selections,
+          current_focus: aiData.current_focus,
+          active_recommendations: aiData.active_recommendations,
+          last_refreshed_at: new Date().toISOString()
+        };
 
-        if (error) {
-          console.error("Error saving profile:", error);
+        const { error: profileError } = await supabase
+          .from('creator_profiles')
+          .upsert(profilePayload, { onConflict: 'user_id' });
+
+        if (profileError) {
+          console.error("Error saving profile:", profileError);
           alert("Could not save your profile. Please check your connection and try again.");
           return;
         }
 
-        // 4. Navigate directly to dashboard replacing history
+        const { error: onboardingError } = await supabase
+          .from('onboarding_responses')
+          .upsert({
+            user_id: user.id,
+            creator_focus: selections.topic,
+            primary_platform: selections.platform,
+            current_goal: selections.primaryGoals[0] || '',
+            content_topics: selections.topic ? [selections.topic] : []
+          }, { onConflict: 'user_id' });
+
+        if (onboardingError) {
+          console.error("Error saving onboarding responses:", onboardingError);
+          alert("Your profile was saved, but some onboarding responses could not be saved.");
+          return;
+        }
+
+        localStorage.setItem(`onboarding_${user.id}`, JSON.stringify(selections));
+
         navigate('/dashboard', { replace: true });
       } catch (error) {
         console.error("Error in onboarding submission:", error);

@@ -39,20 +39,6 @@ useEffect(() => {
 
     const fetchDeepDetails = async () => {
       try {
-        const cacheKey = `ckh_rec_details_v2_${basicRec.title.replace(/\s+/g, '_').toLowerCase()}`;
-        const cachedData = localStorage.getItem(cacheKey);
-
-        if (cachedData) {
-          try {
-            const parsed = JSON.parse(cachedData);
-            setDetails(parsed);
-            setLoading(false);
-            return;
-          } catch (e) {
-            console.warn("Cache parse error, generating fresh details:", e);
-          }
-        }
-
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         let selections = {};
@@ -60,39 +46,81 @@ useEffect(() => {
         if (user) {
           setCurrentUser(user);
 
-          const { data } = await supabase
+          const { data, error: profileError } = await supabase
             .from('creator_profiles')
-            .select('focus, topic, content_topics, goals, goal, challenges, challenge, platform, onboarding_answers, active_in_progress_recommendation')
+            .select('onboarding_answers')
             .eq('user_id', user.id)
             .maybeSingle();
 
-          const { data: userIdeas } = await supabase
+          if (profileError) throw profileError;
+
+          const answers = data?.onboarding_answers || {};
+
+          const { data: userIdeas, error: ideasError } = await supabase
             .from('content_ideas')
-            .select('title, format, topic')
+            .select('title, intended_format, description')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(5);
 
+          if (ideasError) {
+            console.error('Error fetching content ideas:', ideasError);
+          }
+
           selections = {
-            topic: data?.focus || data?.topic || data?.onboarding_answers?.topic || "General Content",
-            contentTags: data?.content_topics || data?.onboarding_answers?.content_topics || [],
-            primaryGoals: data?.goals || [data?.goal || data?.onboarding_answers?.primaryGoals?.[0] || "Growth"],
-            biggestChallenge: data?.challenges || [data?.challenge || data?.onboarding_answers?.biggestChallenge?.[0] || "Consistency"],
-            platform: data?.platform || data?.onboarding_answers?.platform || "YouTube",
-            recentIdeaPatterns: userIdeas?.map(i => `${i.title} (${i.format || 'Video'})`) || []
+            topic: answers.topic || answers.creator_focus || '',
+            contentTags: Array.isArray(answers.contentTags)
+              ? answers.contentTags
+              : Array.isArray(answers.content_topics)
+                ? answers.content_topics
+                : (answers.topic ? [answers.topic] : []),
+            primaryGoals:
+              answers.primaryGoals ||
+              answers.primary_goals ||
+              answers.goals ||
+              [],
+            biggestChallenge:
+              answers.biggestChallenge ||
+              answers.biggest_challenge ||
+              [],
+            platform:
+              answers.platform ||
+              answers.primaryPlatform ||
+              answers.primary_platform ||
+              '',
+            language: answers.language || '',
+            presentation: answers.presentation || '',
+            audience: answers.audience || '',
+            experience: answers.experience || '',
+            mattersMost: answers.mattersMost || '',
+            recentSituation:
+              answers.recentSituation ||
+              answers.situation ||
+              '',
+            supportNeeded:
+              answers.supportNeeded ||
+              answers.needed_support ||
+              [],
+            mattersMost: answers.mattersMost || '',
+            recentIdeaPatterns: (userIdeas || []).map(
+              idea => `${idea.title} (${idea.intended_format || 'Unspecified format'})`
+            )
           };
 
-          if (data?.active_in_progress_recommendation?.title === basicRec.title) {
-            setIsPlanningSaved(true);
+          try {
+            const savedPlan = JSON.parse(
+              localStorage.getItem('ckh_active_in_progress_recommendation') || 'null'
+            );
+            if (savedPlan?.title === basicRec.title) {
+              setIsPlanningSaved(true);
+            }
+          } catch (e) {
+            console.warn('Could not read active recommendation plan:', e);
           }
         }
 
         const fullData = await generateDetailedRecommendation(basicRec, selections);
         setDetails(fullData);
-
-        if (fullData) {
-          localStorage.setItem(cacheKey, JSON.stringify(fullData));
-        }
 
       } catch (err) {
         console.error("Failed to load recommendation details:", err);

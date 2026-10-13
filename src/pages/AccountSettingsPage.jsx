@@ -37,6 +37,9 @@ export default function AccountSettingsPage() {
 
   const { isPremium } = useSubscription();
 
+  const [primaryPlatform, setPrimaryPlatform] = useState('');
+  const [isChangingPlatform, setIsChangingPlatform] = useState(false);
+
   const { lang, setLang, t } = useLanguage();
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
 
@@ -135,13 +138,12 @@ export default function AccountSettingsPage() {
 
       setAvatarUrl(publicUrl);
       localStorage.setItem('user_avatar_url', publicUrl);
+      localStorage.setItem(`user_avatar_url_${user.id}`, publicUrl);
 
-      // Keep Auth metadata synced
       await supabase.auth.updateUser({
         data: { avatar_url: publicUrl, picture: publicUrl }
       });
 
-      // Update creator_profiles table so Dashboard always sees the photo
       await supabase
         .from('creator_profiles')
         .update({ avatar_url: publicUrl })
@@ -154,40 +156,51 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleSaveName = async () => {
-    if (!nameInput.trim() || !user) return;
-    try {
-      setSaving(true);
-      const updated = nameInput.trim();
-      setUsername(updated);
-      
-      const parts = updated.split(/\s+/);
-      const derivedInitials = parts.length > 1 
-        ? (parts[0][0] + parts[1][0]).toUpperCase() 
-        : updated.slice(0, 2).toUpperCase();
-      setInitials(derivedInitials);
+  
+const handleSaveName = async () => {
+  if (!nameInput.trim() || !user || saving) return;
 
-      // 1. Update auth user metadata
-      await supabase.auth.updateUser({
-        data: { username: updated, full_name: updated }
-      });
+  try {
+    setSaving(true);
 
-      // 2. Update both username and full_name in creator_profiles
-      await supabase
-        .from('creator_profiles')
-        .update({ 
-          username: updated,
-          full_name: updated
-        })
-        .eq('user_id', user.id);
+    const updated = nameInput.trim();
 
-      setIsEditingName(false);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  };
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: {
+        username: updated,
+        full_name: updated
+      }
+    });
+
+    if (metadataError) throw metadataError;
+
+    const { error: profileError } = await supabase
+      .from('creator_profiles')
+      .update({
+        username: updated,
+        full_name: updated
+      })
+      .eq('user_id', user.id);
+
+    if (profileError) throw profileError;
+
+    setUsername(updated);
+
+    const parts = updated.split(/\s+/);
+    const derivedInitials = parts.length > 1
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : updated.slice(0, 2).toUpperCase();
+
+    setInitials(derivedInitials);
+    setIsEditingName(false);
+  } catch (err) {
+    console.error('Could not save account name:', err);
+    alert(`Could not save your name: ${err.message || 'Please try again.'}`);
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   const handleUpdateEmail = async () => {
     if (!emailInput.trim() || emailInput === email) {

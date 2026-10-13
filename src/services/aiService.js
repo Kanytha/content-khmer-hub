@@ -57,63 +57,74 @@ const callGeminiJson = async (prompt, maxRetries = 2) => {
 };
 
 // recommendation card on dashboard
-export const generateWorkspaceData = async (selections) => {
+export const generateWorkspaceData = async (selections = {}) => {
+  const listValue = value => Array.isArray(value) ? value.filter(Boolean).join(", ") : (value || "");
+  const profile = {
+    topic: selections.topic || "",
+    contentTags: listValue(selections.contentTags),
+    recentIdeaPatterns: listValue(selections.recentIdeaPatterns),
+    platform: selections.platform || "",
+    language: selections.language || "",
+    presentation: selections.presentation || "",
+    audience: selections.audience || "",
+    experience: selections.experience || "",
+    primaryGoals: listValue(selections.primaryGoals),
+    mattersMost: selections.mattersMost || "",
+    recentSituation: selections.recentSituation || "",
+    biggestChallenge: listValue(selections.biggestChallenge),
+    supportNeeded: listValue(selections.supportNeeded)
+  };
+
   const prompt = `
-You are the Content Khmer Hub (CKH) decision-support engine.
+You are the Content Khmer Hub (CKH) creator decision-support engine.
+Help this creator make a useful content decision based on their CURRENT preferences.
 
-CREATOR PROFILE & ACTIVITY:
-- Primary Category: ${selections.topic || "Education"}
-- Specific Content Focus & Tags: ${selections.contentTags?.join(", ") || "Web Development, Coding, Frontend, Portfolio"}
-- Recent Submitted Ideas / Activity: ${selections.recentIdeaPatterns?.join("; ") || "Building complete portfolio websites"}
-- Platform: ${selections.platform || "YouTube"}
-- Primary Goal: ${selections.primaryGoals?.join(", ") || "Reach More People"}
-- Current Challenge: ${selections.biggestChallenge?.join(", ") || "Consistency"}
+CURRENT CREATOR PROFILE (the source of truth for the recommendations):
+${JSON.stringify(profile, null, 2)}
 
-CRITICAL DOMAIN RULE:
-Do NOT produce generic, high-level education advice (e.g., studying tips, general school homework).
-The creator's specific domain is technical coding, software development, and digital creation.
-All recommendations, formats, hooks, and actions MUST directly relate to programming, code workflows, website building, or technical tools.
+RULES:
+1. The current topic/content focus and current goals have priority. Do not assume the creator is a coding, education, or YouTube creator unless their profile explicitly says so.
+2. Do not substitute an old content idea or past activity for the creator's current topic. Past ideas are supporting context only and should be used only when relevant to the current focus.
+3. Tailor all three recommendations to the stated topic, platform, goals, audience, language, creator style, current situation, challenges, and support needs when those details are provided.
+4. If a profile field is empty, do not invent it or treat an example as a fact. Give broadly useful advice that stays within the stated topic.
+5. Do not invent views, engagement, analytics, trends, or audience responses. Do not guarantee growth or success.
+6. Do not advise the creator to wait for comments or ask the audience as the default solution. Suggest a creator-controlled action they can take.
+7. Make the three recommendations meaningfully different:
+   - rec_1: a specific topic or content angle within the creator's current focus;
+   - rec_2: a suitable format, presentation, or packaging approach for the stated platform;
+   - rec_3: a manageable series, experiment, or next step that fits their goals and constraints.
+8. Recommendations must be practical and specific, not generic motivational advice. Use clear language suitable for creators in Cambodia when appropriate.
 
-ABSOLUTE DATA RULE:
-1. Ground truth only: Rely strictly on the profile and technical tags above.
-2. NEVER advise "asking your audience or waiting for comments". Focus entirely on creator-controlled coding examples and structure.
-3. Provide 3 distinct technical angles:
-   - rec_1: Specific Technical Angle (a concrete coding concept or beginner trap)
-   - rec_2: Technical Format / Packaging (before/after code refactor, short teardown, workflow demo)
-   - rec_3: Series / Scope Narrowing (splitting a large project like a portfolio build into bite-sized segments)
-
-OUTPUT FORMAT:
-Return ONLY raw JSON with this exact structure:
+Return ONLY valid JSON with this exact structure:
 {
   "current_focus": {
-    "title": "Actionable technical focus title",
-    "description": "One concise sentence connecting their coding focus to an achievable milestone."
+    "title": "Short actionable focus based on the current profile",
+    "description": "One concise sentence connecting the current focus to an achievable milestone."
   },
   "active_recommendations": [
     {
       "id": "rec_1",
       "type": "Content Direction",
-      "title": "Specific Code Angle Title",
-      "reason": "Explain why this matches their stated goal and challenge based on their specific technical focus.",
-      "action": "One concrete step the creator can code or outline today."
+      "title": "Specific content angle",
+      "reason": "Explain why this fits the current focus and one or more stated goals or challenges.",
+      "action": "One concrete step the creator can take today."
     },
     {
       "id": "rec_2",
       "type": "Format / Packaging",
-      "title": "Specific Code Packaging Title",
-      "reason": "Explain why this format highlights code clarity and retention without audience reliance.",
-      "action": "One concrete step the creator can code or outline today."
+      "title": "Specific format or packaging approach",
+      "reason": "Explain why this presentation approach fits the current topic and platform, if provided.",
+      "action": "One concrete step the creator can take today."
     },
     {
       "id": "rec_3",
       "type": "Series & Experiment",
-      "title": "Manageable Build Title",
-      "reason": "Explain why breaking down this programming build reduces project friction.",
-      "action": "One concrete step the creator can code or outline today."
+      "title": "Manageable series or experiment",
+      "reason": "Explain how this fits the current goal and constraints.",
+      "action": "One concrete step the creator can take today."
     }
   ]
-}
-  `;
+}`;
 
   try {
     return await callGeminiJson(prompt);
@@ -121,8 +132,8 @@ Return ONLY raw JSON with this exact structure:
     console.error("AI Error caught successfully:", error);
     return {
       current_focus: {
-        title: "Complete your creator profile",
-        description: "Add more details about your goals and technical focus so CKH can generate structured decision support."
+        title: "Review your creator preferences",
+        description: "Check your current content focus and goals, then try generating recommendations again."
       },
       active_recommendations: []
     };
@@ -130,111 +141,138 @@ Return ONLY raw JSON with this exact structure:
 };
 
 // recommendation details page
-export const generateDetailedRecommendation = async (basicRec, selections) => {
+export const generateDetailedRecommendation = async (basicRec, selections = {}) => {
+  const listValue = value => Array.isArray(value) ? value.filter(Boolean).join(", ") : (value || "");
+  const currentProfile = {
+    topic: selections.topic || "",
+    contentTags: listValue(selections.contentTags),
+    platform: selections.platform || "",
+    language: selections.language || "",
+    presentation: selections.presentation || "",
+    audience: selections.audience || "",
+    experience: selections.experience || "",
+    primaryGoals: listValue(selections.primaryGoals),
+    mattersMost: selections.mattersMost || "",
+    recentSituation: selections.recentSituation || "",
+    biggestChallenge: listValue(selections.biggestChallenge),
+    supportNeeded: listValue(selections.supportNeeded),
+    recentIdeaPatterns: listValue(selections.recentIdeaPatterns)
+  };
+
+  const recommendation = {
+    title: basicRec?.title || "Content Direction",
+    reason: basicRec?.reason || "",
+    action: basicRec?.action || "",
+    type: basicRec?.type || basicRec?.category || ""
+  };
+
   const prompt = `
-    You are the Content Khmer Hub (CKH) AI, a strict decision-support system.
-    Your purpose is to help the creator decide whether this specific recommendation is suitable for their current situation.
+You are the Content Khmer Hub (CKH) decision-support advisor.
+Explain the selected recommendation in a way that helps the creator decide whether and how to use it.
 
-    STRICT RULES:
-    1. Do not invent audience behavior, views, engagement, trends, or analytics.
-    2. Do not guarantee growth, views, or success. Use words like "explore", "test", or "opportunity".
-    3. Use ONLY the data provided below.
-    4. If related opportunities do not exist in the data, return "related_opportunity": null. Never fabricate an opportunity.
-    5. Provide 2 to 4 evidence items for "why_prepared", 2 to 3 concise points for "what_this_could_help_with", and 2 to 3 trade-offs for "considerations".
+CURRENT CREATOR PROFILE (source of truth):
+${JSON.stringify(currentProfile, null, 2)}
 
-    CREATOR PROFILE DATA:
-    - Topic / Content Focus: ${selections?.topic || "General Content"}
-    - Primary Platform: ${selections?.platform || "Social Media"}
-    - Language: ${selections?.language || "Khmer"}
-    - Primary Goals: ${selections?.primaryGoals?.join(", ") || "Growth"}
-    - Stated Challenges: ${selections?.biggestChallenge?.join(", ") || "Consistency"}
-    - Current Focus: ${selections?.recentSituation || "Not specified"}
+SELECTED RECOMMENDATION:
+${JSON.stringify(recommendation, null, 2)}
 
-    SELECTED RECOMMENDATION TO EXPAND:
-    - Title: ${basicRec?.title || "Content Direction"}
-    - Context Reason: ${basicRec?.reason || ""}
+RULES:
+1. The current profile's topic, content focus, platform, goals, and constraints take priority over older ideas or past activity.
+2. Do not change the selected recommendation's title or pretend it belongs to a different niche. Explain its relevance to the current focus honestly. If the connection is weak, say so in the summary and considerations, and suggest a sensible way to adapt it to the current focus.
+3. Previous ideas and experience are supporting context only. Mention them only when relevant to the current focus; never treat them as the creator's current niche by themselves.
+4. Use only the profile and recommendation information provided. Do not invent analytics, audience behavior, trends, results, or external opportunities.
+5. Do not guarantee views, growth, engagement, or success.
+6. Make advice practical and specific to the stated profile. If a field is missing, do not invent an answer.
+7. Provide 2 to 4 evidence items in "why_prepared", 2 to 3 options in "what_this_could_help_with.options", and 2 to 3 trade-offs in "considerations".
+8. If the supplied information does not identify a real opportunity, set "related_opportunity" to null.
+9. If prior experience is relevant, explain how it may inform the next decision without letting it override the current preference.
 
-    Return ONLY a raw JSON object matching this schema exactly:
+Return ONLY a valid JSON object matching this schema:
+{
+  "title": ${JSON.stringify(recommendation.title)},
+  "category": "CONTENT STRATEGY",
+  "summary": "One or two sentences explaining how this recommendation fits or does not fully fit the creator's current focus, goals, and situation.",
+  "why_prepared": [
     {
-      "title": "${basicRec?.title || "Content Direction"}",
-      "category": "CONTENT STRATEGY",
-      "summary": "1-2 sentences explaining why exploring this direction could help build on what they have shared with CKH.",
-      "why_prepared": [
-        {
-          "label": "CURRENT GOAL",
-          "value": "${selections?.primaryGoals?.[0] || "Growth"}",
-          "source": "Provided by you"
-        },
-        {
-          "label": "CONTENT FOCUS",
-          "value": "${selections?.topic || "General Content"}",
-          "source": "Provided by you"
-        },
-        {
-          "label": "CREATOR PREFERENCE",
-          "value": "Practical, useful content",
-          "source": "Learned from onboarding"
-        }
-      ],
-      "what_this_could_help_with": {
-        "description": "Short explanation of how this can be explored without overhauling existing workflow.",
-        "options": [
-          {
-            "id": "opt_1",
-            "title": "Quick Tutorial",
-            "description": "Explain one practical topic clearly."
-          },
-          {
-            "id": "opt_2",
-            "title": "Common Problem → Solution",
-            "description": "Address a common hurdle your audience faces."
-          },
-          {
-            "id": "opt_3",
-            "title": "How I Do It",
-            "description": "Share your personal workflow or perspective."
-          }
-        ]
-      },
-      "considerations": [
-        "This fits your current goal, but evaluate if it matches your bandwidth right now.",
-        "CKH does not track your platform performance metrics, so audience interest cannot be confirmed yet.",
-        "Consider whether this topic aligns with your personal style before committing."
-      ],
-      "related_opportunity": null,
-      "personalized_approach": {
-        "available": true,
-        "suggested_title": "Choose one practical topic you know well and test it in a single post.",
-        "badge_text": "Start Planning"
-      },
-      "missing_context": {
-        "needed": true,
-        "prompt": "Share more about your specific audience demographics to refine suggestions."
-      }
+      "label": "CURRENT GOAL",
+      "value": ${JSON.stringify(currentProfile.primaryGoals || "Not provided")},
+      "source": "Provided in your current creator profile"
+    },
+    {
+      "label": "CURRENT CONTENT FOCUS",
+      "value": ${JSON.stringify(currentProfile.topic || currentProfile.contentTags || "Not provided")},
+      "source": "Provided in your current creator profile"
+    },
+    {
+      "label": "PLATFORM OR STYLE",
+      "value": ${JSON.stringify(currentProfile.platform || currentProfile.presentation || "Not provided")},
+      "source": "Provided in your current creator profile"
     }
-  `;
+  ],
+  "what_this_could_help_with": {
+    "description": "Explain what the creator can evaluate by trying or adapting this recommendation.",
+    "options": [
+      {
+        "id": "opt_1",
+        "title": "Try the core idea",
+        "description": "A concrete first step adapted to the creator's current topic."
+      },
+      {
+        "id": "opt_2",
+        "title": "Adapt it to your style",
+        "description": "A practical way to adapt the format or angle to the creator's current platform and presentation preferences."
+      },
+      {
+        "id": "opt_3",
+        "title": "Keep it manageable",
+        "description": "A smaller version that fits the creator's current situation and support needs."
+      }
+    ]
+  },
+  "considerations": [
+    "One realistic trade-off based on the creator's stated situation or challenge.",
+    "One point to check before investing more time in this direction.",
+    "If the recommendation is not closely aligned with the current focus, explain what should be adapted first."
+  ],
+  "related_opportunity": null,
+  "personalized_approach": {
+    "available": true,
+    "suggested_title": "One practical next step tailored to the current creator profile.",
+    "badge_text": "Start Planning"
+  },
+  "missing_context": {
+    "needed": false,
+    "prompt": ""
+  }
+}`;
 
   try {
     return await callGeminiJson(prompt);
   } catch (error) {
     console.error("Error generating detailed recommendation:", error);
     return {
-      title: basicRec?.title || "Recommendation Details",
+      title: recommendation.title,
       category: "CONTENT STRATEGY",
-      summary: basicRec?.reason || "Here is the context behind this direction.",
+      summary: recommendation.reason || "Review this recommendation against your current content focus and goals before deciding.",
       why_prepared: [
         {
-          "label": "CURRENT GOAL",
-          "value": selections?.primaryGoals?.[0] || "Growth",
-          "source": "Provided by you"
+          label: "CURRENT GOAL",
+          value: currentProfile.primaryGoals || "Not provided",
+          source: "Provided in your current creator profile"
+        },
+        {
+          label: "CURRENT CONTENT FOCUS",
+          value: currentProfile.topic || currentProfile.contentTags || "Not provided",
+          source: "Provided in your current creator profile"
         }
       ],
       what_this_could_help_with: {
-        description: "Explore small tests to evaluate how this format feels.",
+        description: "Try a small version first and decide whether it fits your current direction.",
         options: []
       },
       considerations: [
-        "Take this direction at your own pace and adapt it to your workflow."
+        "Check that this recommendation matches your current topic and goals.",
+        "Adapt the effort to your current time and support needs."
       ],
       related_opportunity: null,
       personalized_approach: {

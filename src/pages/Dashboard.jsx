@@ -69,25 +69,77 @@ export default function Dashboard() {
           return;
         }
 
-        // --- FETCH USER IDEAS & BUILD RICH CODING CONTEXT ---
-        const { data: userIdeas } = await supabase
+        const answers = data?.onboarding_answers || {};
+
+        const { data: userIdeas, error: ideasError } = await supabase
           .from('content_ideas')
-          .select('title, format, topic')
+          .select('title, intended_format, description')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5);
 
+        if (ideasError) {
+          console.error('Error fetching content ideas:', ideasError);
+        }
+
         const enrichedContext = {
-          topic: data?.focus || data?.topic || "Web Development & Coding Education",
-          platform: data?.platform || "YouTube",
-          primaryGoals: data?.goals || [data?.goal || "Reach More People"],
-          biggestChallenge: data?.challenges || [data?.challenge || "Finding relevant coding angles"],
-          contentTags: data?.content_topics || ["Coding", "React", "Portfolio Website", "Web Development"],
-          recentIdeaPatterns: userIdeas?.map(i => `${i.title} (${i.format || 'Video'})`) || [
-            "Building complete portfolio website",
-            "React state tutorial"
-          ]
+          topic: answers.topic || answers.creator_focus || '',
+          platform:
+            answers.platform ||
+            answers.primaryPlatform ||
+            answers.primary_platform ||
+            '',
+          language: answers.language || '',
+          presentation: answers.presentation || '',
+          audience: answers.audience || '',
+          experience: answers.experience || '',
+          primaryGoals:
+            answers.primaryGoals ||
+            answers.primary_goals ||
+            answers.goals ||
+            [],
+          mattersMost: answers.mattersMost || '',
+          recentSituation:
+            answers.recentSituation ||
+            answers.situation ||
+            '',
+          biggestChallenge:
+            answers.biggestChallenge ||
+            answers.biggest_challenge ||
+            [],
+          supportNeeded:
+            answers.supportNeeded ||
+            answers.needed_support ||
+            [],
+          contentTags: Array.isArray(answers.contentTags)
+            ? answers.contentTags
+            : answers.topic
+              ? [answers.topic]
+              : [],
+          recentIdeaPatterns: (userIdeas || []).map(
+            idea => `${idea.title} (${idea.intended_format || 'Unspecified format'})`
+          )
         };
+
+        const recommendationContextSignature = JSON.stringify({
+          topic: enrichedContext.topic,
+          platform: enrichedContext.platform,
+          language: enrichedContext.language,
+          presentation: enrichedContext.presentation,
+          audience: enrichedContext.audience,
+          experience: enrichedContext.experience,
+          primaryGoals: enrichedContext.primaryGoals,
+          mattersMost: enrichedContext.mattersMost,
+          recentSituation: enrichedContext.recentSituation,
+          biggestChallenge: enrichedContext.biggestChallenge,
+          supportNeeded: enrichedContext.supportNeeded,
+          contentTags: enrichedContext.contentTags
+        });
+
+        const recommendationContextKey = `ckh_recommendation_context_${user.id}`;
+        const previousContextSignature = localStorage.getItem(recommendationContextKey);
+        const preferencesChanged =
+          previousContextSignature !== recommendationContextSignature;
 
         const resolvedAvatar =
           data?.avatar_url ||
@@ -99,39 +151,52 @@ export default function Dashboard() {
           setAvatarUrl(resolvedAvatar);
         }
 
-        // --- 3-DAY ROTATION & FRESH GENERATION CHECK ---
+        // Refresh recommendations when preferences change, when the cycle expires,
+        // or when the creator has no active recommendations.
         const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
         const generatedTime = data?.recommendations_generated_at
           ? new Date(data.recommendations_generated_at).getTime()
           : 0;
 
         const isCycleExpired = (Date.now() - generatedTime) > THREE_DAYS_MS;
-        const hasNoRecs = !data?.active_recommendations || data?.active_recommendations?.length === 0;
+        const hasNoRecs = !data?.active_recommendations || data.active_recommendations.length === 0;
+        const shouldRefreshRecommendations =
+          preferencesChanged || isCycleExpired || hasNoRecs;
 
-        // If 3 days passed OR user has no recommendations left, generate fresh ones!
-        if ((isCycleExpired || hasNoRecs) && isMounted) {
+        if (shouldRefreshRecommendations && isMounted) {
           try {
             const aiResult = await generateWorkspaceData(enrichedContext);
 
             if (aiResult?.active_recommendations?.length > 0) {
               const freshActive = aiResult.active_recommendations;
+              const previousActive = data?.active_recommendations || [];
               const updatedHistory = [
                 ...(data?.history_recommendations || []),
-                ...(data?.active_recommendations || [])
+                ...previousActive
               ];
+              const generatedAt = new Date().toISOString();
 
-              await supabase
+              const { error: recommendationSaveError } = await supabase
                 .from('creator_profiles')
                 .update({
                   active_recommendations: freshActive,
                   history_recommendations: updatedHistory,
-                  recommendations_generated_at: new Date().toISOString()
+                  recommendations_generated_at: generatedAt
                 })
                 .eq('user_id', user.id);
 
+              if (recommendationSaveError) {
+                throw recommendationSaveError;
+              }
+
               data.active_recommendations = freshActive;
               data.history_recommendations = updatedHistory;
-              data.recommendations_generated_at = new Date().toISOString();
+              data.recommendations_generated_at = generatedAt;
+
+              localStorage.setItem(
+                recommendationContextKey,
+                recommendationContextSignature
+              );
             }
           } catch (rotateErr) {
             console.warn("Could not generate fresh recommendations:", rotateErr);
